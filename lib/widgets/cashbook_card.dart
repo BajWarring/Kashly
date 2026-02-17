@@ -1,3 +1,5 @@
+// UI ONLY
+
 import 'package:flutter/material.dart';
 import '../models/cashbook.dart';
 
@@ -14,41 +16,36 @@ class CashBookCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    
+    final isPositive = cashbook.isPositive;
+
     return Card(
-      margin: const EdgeInsets.only(bottom: 12),
+      margin: const EdgeInsets.only(bottom: 10),
       elevation: 0,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
-        side: BorderSide(
-          color: colorScheme.outlineVariant,
-          width: 1,
-        ),
+        borderRadius: BorderRadius.circular(16),
+        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.6)),
       ),
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              // Icon container
+              // Icon
               Container(
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
                   color: colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(14),
                 ),
-                child: Icon(
-                  Icons.book,
-                  color: colorScheme.onPrimaryContainer,
-                  size: 24,
-                ),
+                child: Icon(Icons.menu_book_rounded,
+                    color: colorScheme.onPrimaryContainer, size: 24),
               ),
-              const SizedBox(width: 16),
-              
-              // CashBook name and details
+              const SizedBox(width: 14),
+
+              // Name & in/out row
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -61,53 +58,78 @@ class CashBookCard extends StatelessWidget {
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      'Running Balance',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          ),
+                    const SizedBox(height: 6),
+                    Row(
+                      children: [
+                        _MiniStat(
+                          icon: Icons.arrow_downward_rounded,
+                          value: '₹${cashbook.totalIn.toStringAsFixed(0)}',
+                          color: const Color(0xFF1B8A3A),
+                        ),
+                        const SizedBox(width: 10),
+                        _MiniStat(
+                          icon: Icons.arrow_upward_rounded,
+                          value: '₹${cashbook.totalOut.toStringAsFixed(0)}',
+                          color: colorScheme.error,
+                        ),
+                      ],
                     ),
                   ],
                 ),
               ),
-              
-              // Balance
+
+              // Balance Badge
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Container(
                     padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 6,
-                    ),
+                        horizontal: 12, vertical: 6),
                     decoration: BoxDecoration(
-                      color: cashbook.isPositive
-                          ? Colors.green.withOpacity(0.1)
-                          : Colors.red.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      color: isPositive
+                          ? Colors.green.withOpacity(0.12)
+                          : colorScheme.errorContainer.withOpacity(0.5),
+                      borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
                       cashbook.formattedBalance,
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
                             fontWeight: FontWeight.bold,
-                            color: cashbook.isPositive
-                                ? Colors.green.shade700
-                                : Colors.red.shade700,
+                            color: isPositive
+                                ? const Color(0xFF1B8A3A)
+                                : colorScheme.error,
                           ),
                     ),
                   ),
                 ],
               ),
-              const SizedBox(width: 8),
-              Icon(
-                Icons.chevron_right,
-                color: colorScheme.onSurfaceVariant,
-              ),
+              const SizedBox(width: 4),
+              Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
             ],
           ),
         ),
       ),
+    );
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  final IconData icon;
+  final String value;
+  final Color color;
+
+  const _MiniStat({required this.icon, required this.value, required this.color});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 11, color: color),
+        const SizedBox(width: 3),
+        Text(value,
+            style: TextStyle(fontSize: 12, color: color, fontWeight: FontWeight.w500)),
+      ],
     );
   }
 }

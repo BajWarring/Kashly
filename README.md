@@ -1,4 +1,3 @@
-# Kashly
 # CashBook App - Material Design 3
 
 A beautiful Flutter cashbook management app built with Material Design 3 (MD3) by Google.

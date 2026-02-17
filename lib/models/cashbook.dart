@@ -1,50 +1,87 @@
 class CashBook {
   final String id;
   final String name;
-  final double balance;
-  final bool isPositive;
+  final double totalIn;
+  final double totalOut;
+  final List<String> customCategories;
+  final List<String> customPaymentMethods;
 
   CashBook({
     required this.id,
     required this.name,
-    required this.balance,
-    required this.isPositive,
-  });
+    this.totalIn = 0.0,
+    this.totalOut = 0.0,
+    List<String>? customCategories,
+    List<String>? customPaymentMethods,
+  })  : customCategories = customCategories ?? [],
+        customPaymentMethods = customPaymentMethods ?? [];
+
+  double get balance => totalIn - totalOut;
+  bool get isPositive => balance >= 0;
 
   String get formattedBalance {
     final sign = isPositive ? '+' : '-';
-    return '$sign ₹${balance.toStringAsFixed(2)}';
+    return '\$sign ₹\${balance.abs().toStringAsFixed(2)}';
   }
+
+  List<String> get allCategories => [
+        'General',
+        'Food & Drinks',
+        'Transport',
+        'Salary',
+        'Business',
+        'Bills & Utilities',
+        'Shopping',
+        'Entertainment',
+        'Healthcare',
+        'Investment',
+        ...customCategories,
+      ];
+
+  List<String> get allPaymentMethods => [
+        'Cash',
+        'Bank Transfer',
+        'UPI',
+        'Card',
+        'Cheque',
+        'Other',
+        ...customPaymentMethods,
+      ];
 
   CashBook copyWith({
     String? id,
     String? name,
-    double? balance,
-    bool? isPositive,
+    double? totalIn,
+    double? totalOut,
+    List<String>? customCategories,
+    List<String>? customPaymentMethods,
   }) {
     return CashBook(
       id: id ?? this.id,
       name: name ?? this.name,
-      balance: balance ?? this.balance,
-      isPositive: isPositive ?? this.isPositive,
+      totalIn: totalIn ?? this.totalIn,
+      totalOut: totalOut ?? this.totalOut,
+      customCategories: customCategories ?? this.customCategories,
+      customPaymentMethods: customPaymentMethods ?? this.customPaymentMethods,
     );
   }
 
-  Map<String, dynamic> toJson() {
-    return {
-      'id': id,
-      'name': name,
-      'balance': balance,
-      'isPositive': isPositive,
-    };
-  }
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'totalIn': totalIn,
+        'totalOut': totalOut,
+        'customCategories': customCategories,
+        'customPaymentMethods': customPaymentMethods,
+      };
 
-  factory CashBook.fromJson(Map<String, dynamic> json) {
-    return CashBook(
-      id: json['id'] as String,
-      name: json['name'] as String,
-      balance: (json['balance'] as num).toDouble(),
-      isPositive: json['isPositive'] as bool,
-    );
-  }
+  factory CashBook.fromJson(Map<String, dynamic> json) => CashBook(
+        id: json['id'],
+        name: json['name'],
+        totalIn: (json['totalIn'] as num).toDouble(),
+        totalOut: (json['totalOut'] as num).toDouble(),
+        customCategories: List<String>.from(json['customCategories'] ?? []),
+        customPaymentMethods:
+            List<String>.from(json['customPaymentMethods'] ?? []),
+      );
 }
