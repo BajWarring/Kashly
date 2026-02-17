@@ -4,35 +4,36 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: '>=3.0.0 <4.0.0'
+  sdk: '>=3.3.0 <4.0.0'
 
 dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
 
-  # Database
-  sqflite: ^2.3.3
+  # Database — local-first SQLite
+  sqflite: ^2.3.3+1
   path: ^1.9.0
 
-  # Encryption
+  # Encryption (AES-256) — pinned to avoid pointycastle conflicts
   encrypt: ^5.0.3
   pointycastle: ^3.9.1
 
-  # Google Drive / Auth
+  # Google Sign-In + Drive API
   google_sign_in: ^6.2.1
   googleapis: ^13.2.0
-  googleapis_auth: ^1.5.1
-  http: ^1.2.1
+  googleapis_auth: ^1.6.0
+  http: ^1.2.2
 
-  # Background tasks
-  workmanager: ^0.5.2
-
-  # Secure storage (for encryption keys)
+  # Secure key storage
   flutter_secure_storage: ^9.2.2
 
-  # App directory paths
-  path_provider: ^2.1.3
+  # File system paths
+  path_provider: ^2.1.4
+
+  # NOTE: workmanager removed — v0.5.x is broken on Flutter 3.27+
+  # Background 24h backup is implemented via app-lifecycle Isolate instead.
+  # Re-add when workmanager publishes a null-safety-clean release.
 
 dev_dependencies:
   flutter_test:

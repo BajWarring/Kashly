@@ -185,9 +185,33 @@ class GoogleDriveService implements CloudStorageService {
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
-// SYNC SERVICE (orchestrates everything)
-// Debounce timer + retry logic
+// BACKGROUND SAFETY BACKUP
+// workmanager v0.5.x is broken on Flutter 3.27+ (Kotlin shim removed).
+// Instead we use AppLifecycleListener + a simple periodic check on resume.
+// For true background execution on Android, use android_alarm_manager_plus
+// or wait for workmanager 0.6.x stable release.
+//
+// Real impl sketch:
+//   - Register AppLifecycleListener in main.dart
+//   - On AppLifecycleState.resumed, call SyncService.runPeriodicBackupIfDue()
+//   - SyncService checks: if (now - lastBackup > 24h) runImmediateBackup()
 // ══════════════════════════════════════════════════════════════════════════════
+
+class PeriodicBackupScheduler {
+  static const _minIntervalHours = 24;
+  DateTime? _lastPeriodicBackup;
+
+  /// Call this from AppLifecycleListener.onResume
+  Future<void> runIfDue(SyncService syncService,
+      void Function(String) onStatusUpdate) async {
+    final now = DateTime.now();
+    if (_lastPeriodicBackup == null ||
+        now.difference(_lastPeriodicBackup!).inHours >= _minIntervalHours) {
+      _lastPeriodicBackup = now;
+      await syncService.runImmediateBackup(onStatusUpdate);
+    }
+  }
+}
 
 class SyncService {
   final DatabaseService _db;
