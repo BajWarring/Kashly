@@ -20,26 +20,13 @@ class CashBook {
   bool get isPositive => balance >= 0;
 
   List<String> get allCategories => [
-        'General',
-        'Food & Drinks',
-        'Transport',
-        'Salary',
-        'Business',
-        'Bills & Utilities',
-        'Shopping',
-        'Entertainment',
-        'Healthcare',
-        'Investment',
+        'General', 'Food & Drinks', 'Transport', 'Salary', 'Business',
+        'Bills & Utilities', 'Shopping', 'Entertainment', 'Healthcare', 'Investment',
         ...customCategories,
       ];
 
   List<String> get allPaymentMethods => [
-        'Cash',
-        'Bank Transfer',
-        'UPI',
-        'Card',
-        'Cheque',
-        'Other',
+        'Cash', 'Bank Transfer', 'UPI', 'Card', 'Cheque', 'Other',
         ...customPaymentMethods,
       ];
 
@@ -76,7 +63,6 @@ class CashBook {
         totalIn: (json['totalIn'] as num).toDouble(),
         totalOut: (json['totalOut'] as num).toDouble(),
         customCategories: List<String>.from(json['customCategories'] ?? []),
-        customPaymentMethods:
-            List<String>.from(json['customPaymentMethods'] ?? []),
+        customPaymentMethods: List<String>.from(json['customPaymentMethods'] ?? []),
       );
 }

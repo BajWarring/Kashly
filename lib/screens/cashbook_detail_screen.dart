@@ -1,6 +1,5 @@
 // UI ONLY — Logic lives in lib/logic/cashbook_logic.dart
 
-import 'dart:collection';
 import 'package:flutter/material.dart';
 import '../models/cashbook.dart';
 import '../models/transaction.dart';
@@ -24,7 +23,6 @@ class CashbookDetailScreen extends StatefulWidget {
 class _CashbookDetailScreenState extends State<CashbookDetailScreen>
     with SingleTickerProviderStateMixin {
   late List<Transaction> _transactions;
-  // Keep a local mutable copy of the cashbook so balances update on screen
   late CashBook _cashbook;
   bool _isSearching = false;
   String _searchQuery = '';
@@ -42,16 +40,13 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen>
       vsync: this,
       duration: const Duration(milliseconds: 300),
     );
-    _saveAnim =
-        CurvedAnimation(parent: _saveAnimCtrl, curve: Curves.easeOut);
+    _saveAnim = CurvedAnimation(parent: _saveAnimCtrl, curve: Curves.easeOut);
     _loadTransactions();
   }
 
   void _loadTransactions() {
     final txList = CashbookLogic.getTransactions(_cashbook.id);
-    // Sort newest first
     txList.sort((a, b) => b.dateTime.compareTo(a.dateTime));
-    // Also refresh cashbook totals from store
     final refreshed = CashbookLogic.getCashbooks()
         .where((c) => c.id == _cashbook.id)
         .firstOrNull;
@@ -91,7 +86,6 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen>
             AddEntryScreen(cashbook: _cashbook, initialEntryType: type),
       ),
     );
-    // Reload after returning (transaction may have been added)
     _loadTransactions();
     if (mounted) {
       setState(() => _isSaving = true);
@@ -110,10 +104,18 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen>
     await Navigator.push(
       context,
       MaterialPageRoute(
-          builder: (_) => EntryDetailScreen(
-              transaction: tx, cashbookId: _cashbook.id)),
+        builder: (_) => EntryDetailScreen(
+          transaction: tx,
+          cashbookId: _cashbook.id,
+          cashbook: _cashbook,
+        ),
+      ),
     );
-    _loadTransactions(); // refresh in case entry was deleted
+    _loadTransactions();
+    // Notify backup of potential changes
+    if (mounted) {
+      BackupStateProvider.of(context).notifyDataChanged();
+    }
   }
 
   void _showMoreMenu() {
@@ -173,8 +175,8 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen>
               leading: Icon(Icons.delete_outline,
                   color: Theme.of(context).colorScheme.error),
               title: Text('Delete CashBook',
-                  style: TextStyle(
-                      color: Theme.of(context).colorScheme.error)),
+                  style:
+                      TextStyle(color: Theme.of(context).colorScheme.error)),
               onTap: () {
                 Navigator.pop(context);
                 _confirmDelete();
@@ -202,8 +204,7 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen>
               child: const Text('Cancel')),
           FilledButton(
             style: FilledButton.styleFrom(
-                backgroundColor:
-                    Theme.of(context).colorScheme.error),
+                backgroundColor: Theme.of(context).colorScheme.error),
             onPressed: () async {
               Navigator.pop(context);
               await CashbookLogic.deleteCashbook(_cashbook.id);
@@ -222,7 +223,6 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen>
     final filtered = _filtered;
     final runningBalances = _buildRunningBalances(filtered);
 
-    // Group by date label (already sorted newest-first)
     final Map<String, List<Transaction>> grouped = LinkedHashMap();
     for (final tx in filtered) {
       final key = _formatGroupDate(tx.dateTime);
@@ -241,8 +241,7 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen>
                 style: TextStyle(color: colorScheme.onSurface),
                 decoration: InputDecoration(
                   hintText: 'Search transactions...',
-                  hintStyle:
-                      TextStyle(color: colorScheme.onSurfaceVariant),
+                  hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
                   border: InputBorder.none,
                 ),
                 onChanged: (v) => setState(() => _searchQuery = v),
@@ -291,23 +290,20 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen>
                           ),
                         ),
                         Padding(
-                          padding:
-                              const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
                           child: Text('Export',
                               style: Theme.of(context)
                                   .textTheme
                                   .titleLarge
-                                  ?.copyWith(
-                                      fontWeight: FontWeight.w600)),
+                                  ?.copyWith(fontWeight: FontWeight.w600)),
                         ),
                         ListTile(
-                            leading: const Icon(
-                                Icons.picture_as_pdf_outlined),
+                            leading:
+                                const Icon(Icons.picture_as_pdf_outlined),
                             title: const Text('Export as PDF'),
                             onTap: () => Navigator.pop(context)),
                         ListTile(
-                            leading:
-                                const Icon(Icons.table_chart_outlined),
+                            leading: const Icon(Icons.table_chart_outlined),
                             title: const Text('Export as CSV'),
                             onTap: () => Navigator.pop(context)),
                         const SizedBox(height: 8),
@@ -326,21 +322,16 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen>
           ],
         ],
       ),
-
-      // ── Body: Stack so saving pill overlays correctly ──────────────────
       body: Stack(
         children: [
           CustomScrollView(
             slivers: [
-              // Balance summary card
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
                   child: BalanceSummaryCard(cashbook: _cashbook),
                 ),
               ),
-
-              // Transactions header
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
@@ -373,8 +364,6 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen>
                   ),
                 ),
               ),
-
-              // Empty state or list
               if (filtered.isEmpty)
                 SliverFillRemaining(
                   child: _EmptyTransactions(
@@ -402,8 +391,6 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen>
                 ),
             ],
           ),
-
-          // Saving pill — correctly positioned over content
           if (_isSaving)
             Positioned(
               bottom: 160,
@@ -453,7 +440,6 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen>
             ),
         ],
       ),
-
       floatingActionButton: _DualFAB(
         onCashIn: () => _openAddEntry(EntryType.cashIn),
         onCashOut: () => _openAddEntry(EntryType.cashOut),
@@ -483,8 +469,6 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen>
     super.dispose();
   }
 }
-
-// ── Dual FAB ────────────────────────────────────────────────────────────────
 
 class _DualFAB extends StatelessWidget {
   final VoidCallback onCashIn;
@@ -524,8 +508,6 @@ class _DualFAB extends StatelessWidget {
   }
 }
 
-// ── Date group ───────────────────────────────────────────────────────────────
-
 class _DateGroup extends StatelessWidget {
   final String date;
   final List<Transaction> transactions;
@@ -556,8 +538,7 @@ class _DateGroup extends StatelessWidget {
                         letterSpacing: 0.3,
                       )),
               const SizedBox(width: 8),
-              Expanded(
-                  child: Divider(color: colorScheme.outlineVariant)),
+              Expanded(child: Divider(color: colorScheme.outlineVariant)),
             ],
           ),
         ),
@@ -570,8 +551,6 @@ class _DateGroup extends StatelessWidget {
     );
   }
 }
-
-// ── Empty state ──────────────────────────────────────────────────────────────
 
 class _EmptyTransactions extends StatelessWidget {
   final VoidCallback onAddEntry;

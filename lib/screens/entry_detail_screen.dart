@@ -1,28 +1,63 @@
-// UI ONLY
+// UI ONLY — Entry Detail Screen with edit support and full edit history
 
 import 'package:flutter/material.dart';
 import '../models/transaction.dart';
-import '../models/edit_log.dart';
+import '../models/cashbook.dart';
 import '../logic/cashbook_logic.dart';
+import 'edit_entry_screen.dart';
 
-class EntryDetailScreen extends StatelessWidget {
+class EntryDetailScreen extends StatefulWidget {
   final Transaction transaction;
   final String cashbookId;
+  final CashBook cashbook;
 
   const EntryDetailScreen({
     super.key,
     required this.transaction,
     required this.cashbookId,
+    required this.cashbook,
   });
 
-  // Edit history is empty until a real edit layer is wired
-  List<EditLog> get _editLogs => [];
+  @override
+  State<EntryDetailScreen> createState() => _EntryDetailScreenState();
+}
+
+class _EntryDetailScreenState extends State<EntryDetailScreen> {
+  late Transaction _transaction;
+
+  @override
+  void initState() {
+    super.initState();
+    _transaction = widget.transaction;
+  }
+
+  Future<void> _openEditScreen() async {
+    final result = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => EditEntryScreen(
+          cashbook: widget.cashbook,
+          transaction: _transaction,
+        ),
+      ),
+    );
+    if (result == true) {
+      // Reload transaction from store
+      final txList = CashbookLogic.getTransactions(widget.cashbookId);
+      final updated = txList
+          .where((t) => t.id == _transaction.id)
+          .firstOrNull;
+      if (updated != null && mounted) {
+        setState(() => _transaction = updated);
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    final isCashIn = transaction.isCashIn;
-    final editLogs = _editLogs;
+    final isCashIn = _transaction.isCashIn;
+    final editLogs = _transaction.editHistory;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
@@ -31,6 +66,12 @@ class EntryDetailScreen extends StatelessWidget {
         title: const Text('Entry Details',
             style: TextStyle(fontWeight: FontWeight.w600)),
         actions: [
+          // ── Edit pencil button ──────────────────────────────────────
+          IconButton(
+            icon: const Icon(Icons.edit_rounded),
+            tooltip: 'Edit entry',
+            onPressed: _openEditScreen,
+          ),
           IconButton(
             icon: const Icon(Icons.share_outlined),
             tooltip: 'Share',
@@ -49,12 +90,12 @@ class EntryDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _AmountHeroCard(
-                transaction: transaction,
+                transaction: _transaction,
                 isCashIn: isCashIn,
                 colorScheme: colorScheme),
             const SizedBox(height: 16),
             _FullDetailCard(
-                transaction: transaction, colorScheme: colorScheme),
+                transaction: _transaction, colorScheme: colorScheme),
             const SizedBox(height: 24),
 
             _SectionHeader(
@@ -70,7 +111,7 @@ class EntryDetailScreen extends StatelessWidget {
                       size: 16, color: colorScheme.primary),
                   const SizedBox(width: 10),
                   Text(
-                    'Entry created on ${_formatFullDate(transaction.dateTime)}',
+                    'Entry created on ${_formatFullDate(_transaction.createdAt)}',
                     style: Theme.of(context)
                         .textTheme
                         .bodySmall
@@ -109,16 +150,18 @@ class EntryDetailScreen extends StatelessWidget {
                         style: Theme.of(context)
                             .textTheme
                             .bodySmall
-                            ?.copyWith(color: colorScheme.onSurfaceVariant)),
+                            ?.copyWith(
+                                color: colorScheme.onSurfaceVariant)),
                   ],
                 ),
                 colorScheme: colorScheme,
               )
             else
-              ...editLogs.asMap().entries.map(
+              // Show newest edits first
+              ...editLogs.reversed.toList().asMap().entries.map(
                     (e) => _EditLogTile(
                       log: e.value,
-                      index: e.key + 1,
+                      index: editLogs.length - e.key,
                       isLast: e.key == editLogs.length - 1,
                       colorScheme: colorScheme,
                     ),
@@ -192,7 +235,7 @@ class EntryDetailScreen extends StatelessWidget {
             onPressed: () async {
               Navigator.pop(context);
               await CashbookLogic.deleteTransaction(
-                  transaction.id, cashbookId);
+                  _transaction.id, widget.cashbookId);
               if (context.mounted) Navigator.pop(context);
             },
             child: const Text('Delete'),
@@ -207,15 +250,14 @@ class EntryDetailScreen extends StatelessWidget {
       'January', 'February', 'March', 'April', 'May', 'June',
       'July', 'August', 'September', 'October', 'November', 'December'
     ];
-    final hour =
-        dt.hour == 0 ? 12 : (dt.hour > 12 ? dt.hour - 12 : dt.hour);
+    final hour = dt.hour == 0 ? 12 : (dt.hour > 12 ? dt.hour - 12 : dt.hour);
     final min = dt.minute.toString().padLeft(2, '0');
     final period = dt.hour >= 12 ? 'PM' : 'AM';
     return '${dt.day} ${months[dt.month - 1]} ${dt.year}, $hour:$min $period';
   }
 }
 
-// ── Amount hero card ────────────────────────────────────────────────────────
+// ── Amount hero card ──────────────────────────────────────────────────────
 
 class _AmountHeroCard extends StatelessWidget {
   final Transaction transaction;
@@ -292,8 +334,8 @@ class _AmountHeroCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             _formatFullDate(transaction.dateTime),
-            style:
-                TextStyle(color: Colors.white.withValues(alpha: 0.82), fontSize: 13),
+            style: TextStyle(
+                color: Colors.white.withValues(alpha: 0.82), fontSize: 13),
           ),
         ],
       ),
@@ -302,7 +344,10 @@ class _AmountHeroCard extends StatelessWidget {
 
   String _formatFullDate(DateTime dt) {
     const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
     final hour = dt.hour == 0 ? 12 : (dt.hour > 12 ? dt.hour - 12 : dt.hour);
     final min = dt.minute.toString().padLeft(2, '0');
     final period = dt.hour >= 12 ? 'PM' : 'AM';
@@ -310,7 +355,7 @@ class _AmountHeroCard extends StatelessWidget {
   }
 }
 
-// ── Full detail card ─────────────────────────────────────────────────────────
+// ── Full detail card ──────────────────────────────────────────────────────
 
 class _FullDetailCard extends StatelessWidget {
   final Transaction transaction;
@@ -322,15 +367,37 @@ class _FullDetailCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final rows = <_DetailRow>[
-      _DetailRow(icon: Icons.tag_rounded, label: 'Category', value: transaction.category),
-      _DetailRow(icon: Icons.payment_rounded, label: 'Payment', value: transaction.paymentMethod),
-      _DetailRow(icon: Icons.calendar_today_outlined, label: 'Date', value: _fmtDate(transaction.dateTime)),
-      _DetailRow(icon: Icons.access_time_rounded, label: 'Time', value: _fmtTime(transaction.dateTime)),
-      if (transaction.remarks?.isNotEmpty == true)
-        _DetailRow(icon: Icons.notes_rounded, label: 'Remarks', value: transaction.remarks!, isMultiline: true),
-      _DetailRow(icon: Icons.numbers_rounded, label: 'Entry ID', value: transaction.id, isMono: true),
       _DetailRow(
-        icon: transaction.isCashIn ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+          icon: Icons.tag_rounded,
+          label: 'Category',
+          value: transaction.category),
+      _DetailRow(
+          icon: Icons.payment_rounded,
+          label: 'Payment',
+          value: transaction.paymentMethod),
+      _DetailRow(
+          icon: Icons.calendar_today_outlined,
+          label: 'Date',
+          value: _fmtDate(transaction.dateTime)),
+      _DetailRow(
+          icon: Icons.access_time_rounded,
+          label: 'Time',
+          value: _fmtTime(transaction.dateTime)),
+      if (transaction.remarks?.isNotEmpty == true)
+        _DetailRow(
+            icon: Icons.notes_rounded,
+            label: 'Remarks',
+            value: transaction.remarks!,
+            isMultiline: true),
+      _DetailRow(
+          icon: Icons.numbers_rounded,
+          label: 'Entry ID',
+          value: transaction.id,
+          isMono: true),
+      _DetailRow(
+        icon: transaction.isCashIn
+            ? Icons.arrow_downward_rounded
+            : Icons.arrow_upward_rounded,
         label: 'Entry Type',
         value: transaction.isCashIn ? 'Cash In' : 'Cash Out',
       ),
@@ -348,7 +415,8 @@ class _FullDetailCard extends StatelessWidget {
           return Column(
             children: [
               Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
                 child: Row(
                   crossAxisAlignment: e.value.isMultiline
                       ? CrossAxisAlignment.start
@@ -357,23 +425,30 @@ class _FullDetailCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(7),
                       decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer.withValues(alpha: 0.6),
+                        color: colorScheme.primaryContainer
+                            .withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(9),
                       ),
-                      child: Icon(e.value.icon, size: 16, color: colorScheme.primary),
+                      child: Icon(e.value.icon,
+                          size: 16, color: colorScheme.primary),
                     ),
                     const SizedBox(width: 14),
                     SizedBox(
                       width: 80,
                       child: Text(e.value.label,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              )),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
+                                  color: colorScheme.onSurfaceVariant)),
                     ),
                     Expanded(
                       child: Text(
                         e.value.value,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(
                               fontWeight: FontWeight.w600,
                               fontFamily: e.value.isMono ? 'monospace' : null,
                             ),
@@ -387,7 +462,10 @@ class _FullDetailCard extends StatelessWidget {
                 ),
               ),
               if (!isLast)
-                Divider(height: 1, indent: 18, endIndent: 18,
+                Divider(
+                    height: 1,
+                    indent: 18,
+                    endIndent: 18,
                     color: colorScheme.outlineVariant.withValues(alpha: 0.6)),
             ],
           );
@@ -397,7 +475,10 @@ class _FullDetailCard extends StatelessWidget {
   }
 
   String _fmtDate(DateTime dt) {
-    const m = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const m = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
     return '${dt.day} ${m[dt.month - 1]}, ${dt.year}';
   }
 
@@ -422,7 +503,7 @@ class _DetailRow {
       this.isMono = false});
 }
 
-// ── Section header ────────────────────────────────────────────────────────────
+// ── Section header ────────────────────────────────────────────────────────
 
 class _SectionHeader extends StatelessWidget {
   final IconData icon;
@@ -453,7 +534,7 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-// ── Timeline card ─────────────────────────────────────────────────────────────
+// ── Timeline card ─────────────────────────────────────────────────────────
 
 class _TimelineCard extends StatelessWidget {
   final Widget child;
@@ -477,7 +558,7 @@ class _TimelineCard extends StatelessWidget {
   }
 }
 
-// ── Edit log tile ─────────────────────────────────────────────────────────────
+// ── Edit log tile ─────────────────────────────────────────────────────────
 
 class _EditLogTile extends StatelessWidget {
   final EditLog log;
@@ -511,7 +592,8 @@ class _EditLogTile extends StatelessWidget {
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: colorScheme.tertiaryContainer,
                       borderRadius: BorderRadius.circular(8),
@@ -524,12 +606,14 @@ class _EditLogTile extends StatelessWidget {
                         )),
                   ),
                   const Spacer(),
-                  Icon(Icons.history_rounded, size: 13, color: colorScheme.onSurfaceVariant),
+                  Icon(Icons.history_rounded,
+                      size: 13, color: colorScheme.onSurfaceVariant),
                   const SizedBox(width: 4),
                   Text(_formatEditDate(log.editedAt),
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          )),
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(color: colorScheme.onSurfaceVariant)),
                 ],
               ),
               const SizedBox(height: 10),
@@ -546,7 +630,10 @@ class _EditLogTile extends StatelessWidget {
   }
 
   String _formatEditDate(DateTime dt) {
-    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const months = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+    ];
     final h = dt.hour == 0 ? 12 : (dt.hour > 12 ? dt.hour - 12 : dt.hour);
     final m = dt.minute.toString().padLeft(2, '0');
     return '${dt.day} ${months[dt.month - 1]} ${dt.year}, $h:$m ${dt.hour >= 12 ? 'PM' : 'AM'}';
@@ -586,18 +673,24 @@ class _FieldChangeTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('Before',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            )),
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelSmall
+                            ?.copyWith(color: colorScheme.onSurfaceVariant)),
                     const SizedBox(height: 2),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: colorScheme.errorContainer.withValues(alpha: 0.4),
+                        color:
+                            colorScheme.errorContainer.withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(change.before,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
                                 color: colorScheme.error,
                                 fontWeight: FontWeight.w600,
                               )),
@@ -615,18 +708,23 @@ class _FieldChangeTile extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text('After',
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            )),
+                        style: Theme.of(context)
+                            .textTheme
+                            .labelSmall
+                            ?.copyWith(color: colorScheme.onSurfaceVariant)),
                     const SizedBox(height: 2),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
                         color: const Color(0xFF1B8A3A).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(change.after,
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(
                                 color: const Color(0xFF1B8A3A),
                                 fontWeight: FontWeight.w600,
                               )),

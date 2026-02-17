@@ -1,6 +1,4 @@
-// DATA STORE — replaces all dummy/sample data with real persistence.
-// Uses shared_preferences to store JSON on device.
-// Drop-in replacement for CashbookLogic stubs.
+// DATA STORE — real persistence using shared_preferences.
 
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -11,7 +9,6 @@ class DataStore {
   static const _cashbooksKey = 'cashbooks';
   static const _transactionsKey = 'transactions';
 
-  // ── Singleton ────────────────────────────────────────────────────────────
   static DataStore? _instance;
   static DataStore get instance => _instance ??= DataStore._();
   DataStore._();
@@ -50,7 +47,6 @@ class DataStore {
   Future<void> deleteCashbook(String cashbookId) async {
     final list = getCashbooks()..removeWhere((c) => c.id == cashbookId);
     await _p.setString(_cashbooksKey, jsonEncode(list.map((c) => c.toJson()).toList()));
-    // Also delete all transactions for this cashbook
     final txList = getTransactions(cashbookId: cashbookId);
     for (final tx in txList) {
       await deleteTransaction(tx.id, cashbookId);
@@ -77,8 +73,6 @@ class DataStore {
       all.add(transaction);
     }
     await _p.setString(_transactionsKey, jsonEncode(all.map((t) => t.toJson()).toList()));
-
-    // Update cashbook totals
     await _recalcCashbook(transaction.cashbookId);
   }
 
@@ -88,9 +82,37 @@ class DataStore {
     await _recalcCashbook(cashbookId);
   }
 
+  // Export all data as JSON string (for backup)
+  String exportAllDataAsJson() {
+    final cashbooks = getCashbooks();
+    final transactions = getTransactions();
+    return jsonEncode({
+      'version': 1,
+      'exportedAt': DateTime.now().toIso8601String(),
+      'cashbooks': cashbooks.map((c) => c.toJson()).toList(),
+      'transactions': transactions.map((t) => t.toJson()).toList(),
+    });
+  }
+
+  // Import data from JSON string (for restore)
+  Future<void> importFromJson(String jsonString) async {
+    final data = jsonDecode(jsonString) as Map<String, dynamic>;
+    final cashbooksJson = data['cashbooks'] as List;
+    final transactionsJson = data['transactions'] as List;
+
+    final cashbooks = cashbooksJson
+        .map((e) => CashBook.fromJson(e as Map<String, dynamic>))
+        .toList();
+    final transactions = transactionsJson
+        .map((e) => Transaction.fromJson(e as Map<String, dynamic>))
+        .toList();
+
+    await _p.setString(_cashbooksKey, jsonEncode(cashbooks.map((c) => c.toJson()).toList()));
+    await _p.setString(_transactionsKey, jsonEncode(transactions.map((t) => t.toJson()).toList()));
+  }
+
   // ── Helpers ──────────────────────────────────────────────────────────────
 
-  /// Recalculates totalIn / totalOut for a cashbook from its transactions.
   Future<void> _recalcCashbook(String cashbookId) async {
     final txList = getTransactions(cashbookId: cashbookId);
     double totalIn = 0;

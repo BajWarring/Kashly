@@ -1,5 +1,5 @@
 name: kashly
-description: A cashbook management app built with Flutter and Material Design 3.
+description: A beautiful cashbook management app with Google Drive backup, Material Design 3, and full edit history.
 publish_to: 'none'
 version: 1.0.0+1
 
@@ -10,8 +10,21 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-  # Real local persistence — replaces all dummy/sample data
+  
+  # Local persistence
   shared_preferences: ^2.3.2
+  
+  # Google Sign-In
+  google_sign_in: ^6.2.1
+  
+  # Google Drive API (googleapis includes drive/v3)
+  googleapis: ^13.2.0
+  
+  # HTTP client for Drive API auth
+  http: ^1.2.1
+  
+  # File system path helper (used in backup)
+  path_provider: ^2.1.3
 
 dev_dependencies:
   flutter_test:

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'logic/data_store.dart';
+import 'services/backup_service.dart';
 import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
 import 'state/backup_state.dart';
@@ -8,8 +9,11 @@ import 'state/backup_state.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialise persistent data store before the app runs
+  // Initialise persistent data store
   await DataStore.instance.init();
+
+  // Initialise backup service (silent sign-in attempt)
+  await BackupService.instance.init();
 
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
@@ -24,7 +28,7 @@ class CashBookApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return BackupStateProvider(
       child: MaterialApp(
-        title: 'CashBook',
+        title: 'Kashly',
         debugShowCheckedModeBanner: false,
         theme: _buildTheme(Brightness.light),
         darkTheme: _buildTheme(Brightness.dark),

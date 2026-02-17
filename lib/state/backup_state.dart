@@ -1,28 +1,24 @@
 // STATE LAYER — backup_state.dart
-// Pure UI state. No platform calls here.
+// Bridges BackupService to UI state.
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import '../services/backup_service.dart';
 
-enum BackupStatus {
-  synced,
-  syncing,
-  pending,
-  error,
-  never,
-}
+export '../services/backup_service.dart' show BackupMetadata, BackupServiceState;
+
+// ── BackupInfo (UI model) ─────────────────────────────────────────────────
 
 class BackupInfo {
-  final BackupStatus status;
+  final BackupServiceState status;
   final DateTime? lastBackupTime;
   final String? lastBackupSize;
   final String? errorMessage;
   final String? connectedAccount;
-  final List<BackupHistoryEntry> history;
+  final List<BackupMetadata> history;
   final bool autoBackupEnabled;
 
   const BackupInfo({
-    this.status = BackupStatus.never,
+    this.status = BackupServiceState.idle,
     this.lastBackupTime,
     this.lastBackupSize,
     this.errorMessage,
@@ -31,40 +27,38 @@ class BackupInfo {
     this.autoBackupEnabled = true,
   });
 
-  BackupInfo copyWith({
-    BackupStatus? status,
-    DateTime? lastBackupTime,
-    String? lastBackupSize,
-    String? errorMessage,
-    String? connectedAccount,
-    List<BackupHistoryEntry>? history,
-    bool? autoBackupEnabled,
-  }) {
-    return BackupInfo(
-      status: status ?? this.status,
-      lastBackupTime: lastBackupTime ?? this.lastBackupTime,
-      lastBackupSize: lastBackupSize ?? this.lastBackupSize,
-      errorMessage: errorMessage ?? this.errorMessage,
-      connectedAccount: connectedAccount ?? this.connectedAccount,
-      history: history ?? this.history,
-      autoBackupEnabled: autoBackupEnabled ?? this.autoBackupEnabled,
-    );
+  // Legacy compat
+  BackupStatus get legacyStatus {
+    switch (status) {
+      case BackupServiceState.synced:
+        return BackupStatus.synced;
+      case BackupServiceState.syncing:
+        return BackupStatus.syncing;
+      case BackupServiceState.pending:
+        return BackupStatus.pending;
+      case BackupServiceState.error:
+        return BackupStatus.error;
+      case BackupServiceState.idle:
+        return lastBackupTime == null ? BackupStatus.never : BackupStatus.synced;
+    }
   }
 
   String get statusLabel {
     switch (status) {
-      case BackupStatus.synced:
+      case BackupServiceState.synced:
         return lastBackupTime != null
             ? 'Backed up ${_relativeTime(lastBackupTime!)}'
             : 'Backed up';
-      case BackupStatus.syncing:
+      case BackupServiceState.syncing:
         return 'Syncing…';
-      case BackupStatus.pending:
+      case BackupServiceState.pending:
         return 'Changes pending…';
-      case BackupStatus.error:
+      case BackupServiceState.error:
         return 'Backup paused';
-      case BackupStatus.never:
-        return 'Not backed up yet';
+      case BackupServiceState.idle:
+        return lastBackupTime != null
+            ? 'Last backup ${_relativeTime(lastBackupTime!)}'
+            : 'Not backed up yet';
     }
   }
 
@@ -77,23 +71,10 @@ class BackupInfo {
   }
 }
 
-class BackupHistoryEntry {
-  final String id;
-  final DateTime timestamp;
-  final String size;
-  final String version;
-  final bool isLatest;
+// Legacy enum for existing UI code
+enum BackupStatus { synced, syncing, pending, error, never }
 
-  const BackupHistoryEntry({
-    required this.id,
-    required this.timestamp,
-    required this.size,
-    required this.version,
-    this.isLatest = false,
-  });
-}
-
-// ── InheritedWidget provider ──────────────────────────────────────────────
+// ── BackupStateProvider ────────────────────────────────────────────────────
 
 class BackupStateProvider extends StatefulWidget {
   final Widget child;
@@ -110,78 +91,103 @@ class BackupStateProvider extends StatefulWidget {
 }
 
 class BackupStateProviderState extends State<BackupStateProvider> {
-  // Start with never — no fake backup data
+  final _service = BackupService.instance;
+
   BackupInfo _info = const BackupInfo(
-    status: BackupStatus.never,
+    status: BackupServiceState.idle,
     autoBackupEnabled: true,
   );
 
   BackupInfo get info => _info;
 
+  @override
+  void initState() {
+    super.initState();
+    _service.onStateChanged = _onServiceStateChanged;
+    _syncFromService();
+  }
+
+  void _syncFromService() {
+    setState(() {
+      _info = BackupInfo(
+        status: _service.state,
+        lastBackupTime: _service.lastBackupTime,
+        lastBackupSize: _service.lastBackupSize,
+        errorMessage: _service.errorMessage,
+        connectedAccount: _service.connectedEmail,
+        history: _service.backupHistory,
+        autoBackupEnabled: _service.autoBackupEnabled,
+      );
+    });
+  }
+
+  void _onServiceStateChanged(BackupServiceState state) {
+    if (mounted) _syncFromService();
+  }
+
+  /// Called after any data change to trigger auto-backup
   void notifyDataChanged() {
-    _updateStatus(BackupStatus.pending);
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) _updateStatus(BackupStatus.syncing);
-      Future.delayed(const Duration(seconds: 2), () {
-        if (mounted) {
-          _updateStatus(BackupStatus.synced, newBackupNow: true);
-        }
-      });
-    });
+    _service.notifyDataChanged();
+    _setState(BackupServiceState.pending);
   }
 
-  void triggerManualBackup() {
-    _updateStatus(BackupStatus.syncing);
-    Future.delayed(const Duration(seconds: 3), () {
-      if (mounted) _updateStatus(BackupStatus.synced, newBackupNow: true);
-    });
+  Future<void> triggerManualBackup() async {
+    await _service.runBackup();
   }
 
-  void simulateError() {
-    _updateStatus(BackupStatus.error,
-        errorMessage: 'Network unavailable. Will retry automatically.');
+  Future<String?> signIn() async {
+    final email = await _service.signIn();
+    _syncFromService();
+    return email;
   }
 
-  void toggleAutoBackup(bool enabled) {
+  Future<void> signOut() async {
+    await _service.signOut();
+    _syncFromService();
+  }
+
+  Future<bool> restoreLatest() async {
+    final result = await _service.restoreLatest();
+    _syncFromService();
+    return result;
+  }
+
+  Future<bool> restoreFromBackup(BackupMetadata backup) async {
+    final result = await _service.restoreFromBackup(backup);
+    _syncFromService();
+    return result;
+  }
+
+  Future<void> toggleAutoBackup(bool enabled) async {
+    await _service.setAutoBackup(enabled);
+    _syncFromService();
+  }
+
+  void _setState(BackupServiceState status) {
     setState(() {
-      _info = _info.copyWith(autoBackupEnabled: enabled);
-    });
-  }
-
-  void _updateStatus(BackupStatus status,
-      {bool newBackupNow = false, String? errorMessage}) {
-    setState(() {
-      final now = DateTime.now();
-      List<BackupHistoryEntry> history = _info.history;
-
-      if (newBackupNow) {
-        final newEntry = BackupHistoryEntry(
-          id: 'bk_${now.millisecondsSinceEpoch}',
-          timestamp: now,
-          size: '${(0.8 + (history.length * 0.1)).toStringAsFixed(1)} MB',
-          version: 'v${now.millisecondsSinceEpoch}',
-          isLatest: true,
-        );
-        history = [
-          newEntry,
-          ...history.map((e) => BackupHistoryEntry(
-                id: e.id,
-                timestamp: e.timestamp,
-                size: e.size,
-                version: e.version,
-                isLatest: false,
-              )),
-        ];
-        if (history.length > 5) history = history.take(5).toList();
-      }
-
-      _info = _info.copyWith(
+      _info = BackupInfo(
         status: status,
-        lastBackupTime: newBackupNow ? now : _info.lastBackupTime,
-        lastBackupSize:
-            newBackupNow ? history.first.size : _info.lastBackupSize,
-        errorMessage: errorMessage,
-        history: history,
+        lastBackupTime: _service.lastBackupTime,
+        lastBackupSize: _service.lastBackupSize,
+        errorMessage: _service.errorMessage,
+        connectedAccount: _service.connectedEmail,
+        history: _service.backupHistory,
+        autoBackupEnabled: _service.autoBackupEnabled,
+      );
+    });
+  }
+
+  // Legacy compat methods
+  void simulateError() {
+    setState(() {
+      _info = BackupInfo(
+        status: BackupServiceState.error,
+        lastBackupTime: _info.lastBackupTime,
+        lastBackupSize: _info.lastBackupSize,
+        errorMessage: 'Backup paused — will retry when connection is available.',
+        connectedAccount: _info.connectedAccount,
+        history: _info.history,
+        autoBackupEnabled: _info.autoBackupEnabled,
       );
     });
   }
@@ -189,6 +195,12 @@ class BackupStateProviderState extends State<BackupStateProvider> {
   @override
   Widget build(BuildContext context) {
     return _BackupInherited(state: this, child: widget.child);
+  }
+
+  @override
+  void dispose() {
+    _service.onStateChanged = null;
+    super.dispose();
   }
 }
 
