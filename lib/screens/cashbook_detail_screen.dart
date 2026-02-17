@@ -1,4 +1,4 @@
-// UI ONLY — No business logic here. Logic goes in lib/logic/cashbook_logic.dart
+// UI ONLY — Logic lives in lib/logic/cashbook_logic.dart
 
 import 'package:flutter/material.dart';
 import '../models/cashbook.dart';
@@ -12,7 +12,6 @@ import 'cashbook_options_screen.dart';
 
 class CashbookDetailScreen extends StatefulWidget {
   final CashBook cashbook;
-
   const CashbookDetailScreen({super.key, required this.cashbook});
 
   @override
@@ -35,23 +34,34 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen> {
     if (_searchQuery.isEmpty) return _transactions;
     return _transactions.where((t) {
       final q = _searchQuery.toLowerCase();
-      return t.remarks!.toLowerCase().contains(q) ||
+      return (t.remarks ?? '').toLowerCase().contains(q) ||
           t.category.toLowerCase().contains(q) ||
           t.paymentMethod.toLowerCase().contains(q);
     }).toList();
+  }
+
+  // Compute running balance per transaction (descending list)
+  Map<String, double> _buildRunningBalances(List<Transaction> txList) {
+    // Sort ascending by dateTime to compute running totals
+    final sorted = List<Transaction>.from(txList)
+      ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
+    double running = 0;
+    final Map<String, double> map = {};
+    for (final tx in sorted) {
+      running += tx.isCashIn ? tx.amount : -tx.amount;
+      map[tx.id] = running;
+    }
+    return map;
   }
 
   void _openAddEntry(EntryType type) async {
     await Navigator.push(
       context,
       MaterialPageRoute(
-        builder: (_) => AddEntryScreen(
-          cashbook: widget.cashbook,
-          initialEntryType: type,
-        ),
+        builder: (_) =>
+            AddEntryScreen(cashbook: widget.cashbook, initialEntryType: type),
       ),
     );
-    // TODO: Refresh transactions from logic layer
   }
 
   void _openEntryDetail(Transaction tx) {
@@ -64,65 +74,53 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen> {
   void _showMoreMenu() {
     showModalBottomSheet(
       context: context,
+      useRootNavigator: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+      ),
       builder: (_) => SafeArea(
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
+            const SizedBox(height: 8),
+            Container(
+              width: 32,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.3),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 16),
             ListTile(
-              leading: const Icon(Icons.tune),
+              leading: const Icon(Icons.tune_rounded),
               title: const Text('Manage Categories & Payments'),
               onTap: () {
                 Navigator.pop(context);
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => CashbookOptionsScreen(
-                      cashbook: widget.cashbook,
-                    ),
-                  ),
-                );
+                Navigator.push(context, MaterialPageRoute(
+                  builder: (_) => CashbookOptionsScreen(cashbook: widget.cashbook),
+                ));
               },
             ),
             ListTile(
               leading: const Icon(Icons.picture_as_pdf_outlined),
               title: const Text('Export as PDF'),
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Exporting as PDF...')),
-                );
-              },
+              onTap: () { Navigator.pop(context); },
             ),
             ListTile(
               leading: const Icon(Icons.table_chart_outlined),
               title: const Text('Export as CSV'),
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Exporting as CSV...')),
-                );
-              },
+              onTap: () { Navigator.pop(context); },
             ),
             ListTile(
               leading: const Icon(Icons.share_outlined),
               title: const Text('Share'),
-              onTap: () {
-                Navigator.pop(context);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Sharing...')),
-                );
-              },
+              onTap: () { Navigator.pop(context); },
             ),
             ListTile(
-              leading: Icon(Icons.delete_outline,
-                  color: Theme.of(context).colorScheme.error),
-              title: Text('Delete CashBook',
-                  style:
-                      TextStyle(color: Theme.of(context).colorScheme.error)),
-              onTap: () {
-                Navigator.pop(context);
-                _confirmDelete();
-              },
+              leading: Icon(Icons.delete_outline, color: Theme.of(context).colorScheme.error),
+              title: Text('Delete CashBook', style: TextStyle(color: Theme.of(context).colorScheme.error)),
+              onTap: () { Navigator.pop(context); _confirmDelete(); },
             ),
             const SizedBox(height: 8),
           ],
@@ -135,26 +133,14 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
-        icon: Icon(Icons.delete_forever,
-            color: Theme.of(context).colorScheme.error),
+        icon: Icon(Icons.delete_forever_rounded, color: Theme.of(context).colorScheme.error, size: 32),
         title: const Text('Delete CashBook?'),
-        content: Text(
-            'All transactions in "${widget.cashbook.name}" will be permanently deleted.'),
+        content: Text('All transactions in "${widget.cashbook.name}" will be permanently deleted.'),
         actions: [
-          TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
           FilledButton(
-            style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(context).colorScheme.error),
-            onPressed: () {
-              Navigator.pop(context);
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                    content: Text('${widget.cashbook.name} deleted')),
-              );
-            },
+            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
+            onPressed: () { Navigator.pop(context); Navigator.pop(context); },
             child: const Text('Delete'),
           ),
         ],
@@ -165,10 +151,11 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final filtered = _filtered;
+    final runningBalances = _buildRunningBalances(filtered);
 
-    // Group transactions by date
     final Map<String, List<Transaction>> grouped = {};
-    for (final tx in _filtered) {
+    for (final tx in filtered) {
       final key = _formatGroupDate(tx.dateTime);
       grouped.putIfAbsent(key, () => []).add(tx);
     }
@@ -176,6 +163,7 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen> {
     return Scaffold(
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
+        scrolledUnderElevation: 2,
         title: _isSearching
             ? TextField(
                 controller: _searchController,
@@ -183,13 +171,13 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen> {
                 style: TextStyle(color: colorScheme.onSurface),
                 decoration: InputDecoration(
                   hintText: 'Search transactions...',
-                  hintStyle:
-                      TextStyle(color: colorScheme.onSurfaceVariant),
+                  hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
                   border: InputBorder.none,
                 ),
                 onChanged: (v) => setState(() => _searchQuery = v),
               )
-            : Text(widget.cashbook.name),
+            : Text(widget.cashbook.name,
+                style: const TextStyle(fontWeight: FontWeight.w600)),
         actions: [
           if (_isSearching)
             IconButton(
@@ -202,7 +190,7 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen> {
             )
           else ...[
             IconButton(
-              icon: const Icon(Icons.search),
+              icon: const Icon(Icons.search_rounded),
               tooltip: 'Search',
               onPressed: () => setState(() => _isSearching = true),
             ),
@@ -212,28 +200,27 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen> {
               onPressed: () {
                 showModalBottomSheet(
                   context: context,
+                  shape: const RoundedRectangleBorder(
+                    borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+                  ),
                   builder: (_) => SafeArea(
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
+                        const SizedBox(height: 8),
+                        Container(
+                          width: 32, height: 4,
+                          decoration: BoxDecoration(
+                            color: colorScheme.onSurfaceVariant.withOpacity(0.3),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
                         Padding(
-                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
-                          child: Text('Export',
-                              style:
-                                  Theme.of(context).textTheme.titleLarge),
+                          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+                          child: Text('Export', style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
                         ),
-                        ListTile(
-                          leading:
-                              const Icon(Icons.picture_as_pdf_outlined),
-                          title: const Text('Export as PDF'),
-                          onTap: () => Navigator.pop(context),
-                        ),
-                        ListTile(
-                          leading:
-                              const Icon(Icons.table_chart_outlined),
-                          title: const Text('Export as CSV'),
-                          onTap: () => Navigator.pop(context),
-                        ),
+                        ListTile(leading: const Icon(Icons.picture_as_pdf_outlined), title: const Text('Export as PDF'), onTap: () => Navigator.pop(context)),
+                        ListTile(leading: const Icon(Icons.table_chart_outlined), title: const Text('Export as CSV'), onTap: () => Navigator.pop(context)),
                         const SizedBox(height: 8),
                       ],
                     ),
@@ -242,7 +229,7 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen> {
               },
             ),
             IconButton(
-              icon: const Icon(Icons.more_vert),
+              icon: const Icon(Icons.more_vert_rounded),
               tooltip: 'More',
               onPressed: _showMoreMenu,
             ),
@@ -251,51 +238,47 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen> {
       ),
       body: CustomScrollView(
         slivers: [
-          // Balance Summary Card
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
               child: BalanceSummaryCard(cashbook: widget.cashbook),
             ),
           ),
-
-          // Section Header
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              padding: const EdgeInsets.fromLTRB(16, 20, 16, 8),
               child: Row(
                 children: [
-                  Text(
-                    'Transactions',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: colorScheme.onSurface,
-                        ),
-                  ),
+                  Text('Transactions',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                            color: colorScheme.onSurface,
+                          )),
                   const SizedBox(width: 8),
-                  Chip(
-                    label: Text('${_filtered.length}'),
-                    labelStyle: TextStyle(
-                        fontSize: 12, color: colorScheme.onSecondaryContainer),
-                    backgroundColor: colorScheme.secondaryContainer,
-                    padding: EdgeInsets.zero,
-                    visualDensity: VisualDensity.compact,
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: colorScheme.secondaryContainer,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text('${filtered.length}',
+                        style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: colorScheme.onSecondaryContainer,
+                        )),
                   ),
                 ],
               ),
             ),
           ),
-
-          // Transactions grouped by date
-          if (_filtered.isEmpty)
+          if (filtered.isEmpty)
             SliverFillRemaining(
-              child: _EmptyTransactions(
-                onAddEntry: () => _openAddEntry(EntryType.cashIn),
-              ),
+              child: _EmptyTransactions(onAddEntry: () => _openAddEntry(EntryType.cashIn)),
             )
           else
             SliverPadding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 120),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 140),
               sliver: SliverList(
                 delegate: SliverChildBuilderDelegate(
                   (context, index) {
@@ -305,6 +288,7 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen> {
                     return _DateGroup(
                       date: key,
                       transactions: txList,
+                      runningBalances: runningBalances,
                       onTap: _openEntryDetail,
                     );
                   },
@@ -314,7 +298,8 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen> {
             ),
         ],
       ),
-      floatingActionButton: _CashInOutFAB(
+      // Two separate FABs — no nested menu
+      floatingActionButton: _DualFAB(
         onCashIn: () => _openAddEntry(EntryType.cashIn),
         onCashOut: () => _openAddEntry(EntryType.cashOut),
       ),
@@ -331,13 +316,8 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen> {
     return '${dt.day} ${_monthName(dt.month)}, ${dt.year}';
   }
 
-  String _monthName(int month) {
-    const months = [
-      'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
-    ];
-    return months[month - 1];
-  }
+  String _monthName(int m) =>
+      ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][m - 1];
 
   @override
   void dispose() {
@@ -346,16 +326,60 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen> {
   }
 }
 
-// --- Sub-widgets (UI only) ---
+// ── Dual FAB (Cash In + Cash Out — always visible, no nesting) ─────────────
+
+class _DualFAB extends StatelessWidget {
+  final VoidCallback onCashIn;
+  final VoidCallback onCashOut;
+
+  const _DualFAB({required this.onCashIn, required this.onCashOut});
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        // Cash Out FAB
+        FloatingActionButton.extended(
+          heroTag: 'cashout_fab',
+          backgroundColor: colorScheme.errorContainer,
+          foregroundColor: colorScheme.onErrorContainer,
+          elevation: 2,
+          onPressed: onCashOut,
+          icon: const Icon(Icons.arrow_upward_rounded),
+          label: const Text('Cash Out', style: TextStyle(fontWeight: FontWeight.w600)),
+        ),
+        const SizedBox(height: 12),
+        // Cash In FAB
+        FloatingActionButton.extended(
+          heroTag: 'cashin_fab',
+          backgroundColor: const Color(0xFF1B8A3A),
+          foregroundColor: Colors.white,
+          elevation: 2,
+          onPressed: onCashIn,
+          icon: const Icon(Icons.arrow_downward_rounded),
+          label: const Text('Cash In', style: TextStyle(fontWeight: FontWeight.w600)),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Date group ─────────────────────────────────────────────────────────────
 
 class _DateGroup extends StatelessWidget {
   final String date;
   final List<Transaction> transactions;
+  final Map<String, double> runningBalances;
   final void Function(Transaction) onTap;
 
   const _DateGroup({
     required this.date,
     required this.transactions,
+    required this.runningBalances,
     required this.onTap,
   });
 
@@ -366,204 +390,66 @@ class _DateGroup extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Padding(
-          padding: const EdgeInsets.only(top: 12, bottom: 6),
-          child: Text(
-            date,
-            style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontWeight: FontWeight.w600,
-                ),
+          padding: const EdgeInsets.only(top: 16, bottom: 8),
+          child: Row(
+            children: [
+              Text(date,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                        color: colorScheme.primary,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.3,
+                      )),
+              const SizedBox(width: 8),
+              Expanded(child: Divider(color: colorScheme.outlineVariant)),
+            ],
           ),
         ),
-        ...transactions.map(
-          (tx) => TransactionCard(
-            transaction: tx,
-            onTap: () => onTap(tx),
-          ),
-        ),
+        ...transactions.map((tx) => TransactionCard(
+              transaction: tx,
+              runningBalance: runningBalances[tx.id],
+              onTap: () => onTap(tx),
+            )),
       ],
     );
   }
 }
 
+// ── Empty state ─────────────────────────────────────────────────────────────
+
 class _EmptyTransactions extends StatelessWidget {
   final VoidCallback onAddEntry;
-
   const _EmptyTransactions({required this.onAddEntry});
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Container(
-            padding: const EdgeInsets.all(24),
-            decoration: BoxDecoration(
-              color: colorScheme.surfaceContainerHighest,
-              shape: BoxShape.circle,
+      child: Padding(
+        padding: const EdgeInsets.all(32),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Container(
+              padding: const EdgeInsets.all(28),
+              decoration: BoxDecoration(
+                color: colorScheme.surfaceContainerHighest,
+                shape: BoxShape.circle,
+              ),
+              child: Icon(Icons.receipt_long_outlined,
+                  size: 52, color: colorScheme.onSurfaceVariant),
             ),
-            child: Icon(Icons.receipt_long_outlined,
-                size: 48, color: colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 16),
-          Text('No transactions yet',
-              style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Text(
-            'Tap + to record your first entry',
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium
-                ?.copyWith(color: colorScheme.onSurfaceVariant),
-          ),
-          const SizedBox(height: 24),
-          FilledButton.tonalIcon(
-            onPressed: onAddEntry,
-            icon: const Icon(Icons.add),
-            label: const Text('Add Entry'),
-          ),
-        ],
+            const SizedBox(height: 24),
+            Text('No transactions yet',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+            const SizedBox(height: 8),
+            Text('Record your first cash in or out\nusing the buttons below',
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
+                    )),
+          ],
+        ),
       ),
     );
-  }
-}
-
-class _CashInOutFAB extends StatefulWidget {
-  final VoidCallback onCashIn;
-  final VoidCallback onCashOut;
-
-  const _CashInOutFAB({required this.onCashIn, required this.onCashOut});
-
-  @override
-  State<_CashInOutFAB> createState() => _CashInOutFABState();
-}
-
-class _CashInOutFABState extends State<_CashInOutFAB>
-    with SingleTickerProviderStateMixin {
-  bool _expanded = false;
-  late AnimationController _controller;
-  late Animation<double> _expandAnim;
-
-  @override
-  void initState() {
-    super.initState();
-    _controller = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 250),
-    );
-    _expandAnim = CurvedAnimation(
-      parent: _controller,
-      curve: Curves.easeOutCubic,
-    );
-  }
-
-  void _toggle() {
-    setState(() => _expanded = !_expanded);
-    _expanded ? _controller.forward() : _controller.reverse();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.end,
-      children: [
-        // Cash Out
-        ScaleTransition(
-          scale: _expandAnim,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_expanded)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Material(
-                      color: colorScheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        child: Text('Cash Out',
-                            style: TextStyle(
-                                color: colorScheme.onSurface,
-                                fontWeight: FontWeight.w600)),
-                      ),
-                    ),
-                  ),
-                FloatingActionButton.small(
-                  heroTag: 'cashout',
-                  backgroundColor: colorScheme.errorContainer,
-                  foregroundColor: colorScheme.onErrorContainer,
-                  onPressed: () {
-                    _toggle();
-                    widget.onCashOut();
-                  },
-                  child: const Icon(Icons.remove),
-                ),
-              ],
-            ),
-          ),
-        ),
-        // Cash In
-        ScaleTransition(
-          scale: _expandAnim,
-          child: Padding(
-            padding: const EdgeInsets.only(bottom: 12),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                if (_expanded)
-                  Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: Material(
-                      color: colorScheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 12, vertical: 6),
-                        child: Text('Cash In',
-                            style: TextStyle(
-                                color: colorScheme.onSurface,
-                                fontWeight: FontWeight.w600)),
-                      ),
-                    ),
-                  ),
-                FloatingActionButton.small(
-                  heroTag: 'cashin',
-                  backgroundColor: colorScheme.primaryContainer,
-                  foregroundColor: colorScheme.onPrimaryContainer,
-                  onPressed: () {
-                    _toggle();
-                    widget.onCashIn();
-                  },
-                  child: const Icon(Icons.add),
-                ),
-              ],
-            ),
-          ),
-        ),
-        // Main FAB
-        FloatingActionButton(
-          heroTag: 'main',
-          onPressed: _toggle,
-          child: AnimatedRotation(
-            turns: _expanded ? 0.125 : 0,
-            duration: const Duration(milliseconds: 250),
-            child: const Icon(Icons.add),
-          ),
-        ),
-      ],
-    );
-  }
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
   }
 }
