@@ -365,13 +365,13 @@ class BackupService {
   }
 
   Future<List<drive.File>> _listDriveFiles(drive.DriveApi api) async {
-    final result = await api.files.list(
-      spaces: 'appDataFolder',
-      fields: 'files(id, name, createdTime, size)',
-      q: "name contains '$_backupFilePrefix'",
-      orderBy: 'createdTime desc',
-    );
-    return result.files ?? [];
+  final result = await api.files.list(
+    spaces: 'appDataFolder',
+    orderBy: 'createdTime desc',
+    $fields: 'files(id, name, createdTime, size)',
+    q: "name contains '$_backupFilePrefix'",
+  );
+  return result.files ?? [];
   }
 
   // ── Encryption (XOR — replace with AES in production) ────────────────────
