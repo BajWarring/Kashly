@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import '../models/cashbook.dart';
 import '../logic/cashbook_logic.dart';
 import '../widgets/cashbook_card.dart';
+import '../widgets/backup_status_icon.dart';
+import '../state/backup_state.dart';
 import 'cashbook_detail_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -164,6 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
           else ...[
             IconButton(icon: const Icon(Icons.search_rounded), onPressed: () => setState(() => _isSearching = true)),
             IconButton(icon: const Icon(Icons.filter_list_rounded), onPressed: _showFilterSheet),
+            const BackupStatusIcon(),
           ],
         ],
       ),
@@ -197,6 +200,8 @@ class _HomeScreenState extends State<HomeScreen> {
                         color: colorScheme.onSecondaryContainer,
                       )),
                 ),
+                const Spacer(),
+                const BackupStatusText(),
               ],
             ),
           ),

@@ -6,6 +6,8 @@ import '../models/transaction.dart';
 import '../logic/cashbook_logic.dart';
 import '../widgets/transaction_card.dart';
 import '../widgets/balance_summary_card.dart';
+import '../widgets/backup_status_icon.dart';
+import '../state/backup_state.dart';
 import 'add_entry_screen.dart';
 import 'entry_detail_screen.dart';
 import 'cashbook_options_screen.dart';
@@ -22,6 +24,7 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen> {
   late List<Transaction> _transactions;
   bool _isSearching = false;
   String _searchQuery = '';
+  bool _isSaving = false;
   final TextEditingController _searchController = TextEditingController();
 
   @override
@@ -62,6 +65,13 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen> {
             AddEntryScreen(cashbook: widget.cashbook, initialEntryType: type),
       ),
     );
+    // Show saving feedback and trigger backup
+    if (mounted) {
+      setState(() => _isSaving = true);
+      BackupStateProvider.of(context).notifyDataChanged();
+      await Future.delayed(const Duration(seconds: 2));
+      if (mounted) setState(() => _isSaving = false);
+    }
   }
 
   void _openEntryDetail(Transaction tx) {
@@ -233,10 +243,13 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen> {
               tooltip: 'More',
               onPressed: _showMoreMenu,
             ),
+            const BackupStatusIcon(),
           ],
         ],
       ),
-      body: CustomScrollView(
+      body: SavingFeedback(
+        saving: _isSaving,
+        child: CustomScrollView(
         slivers: [
           SliverToBoxAdapter(
             child: Padding(
@@ -297,6 +310,7 @@ class _CashbookDetailScreenState extends State<CashbookDetailScreen> {
               ),
             ),
         ],
+      ),
       ),
       // Two separate FABs — no nested menu
       floatingActionButton: _DualFAB(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
+import 'state/backup_state.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -16,13 +17,15 @@ class CashBookApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'CashBook',
-      debugShowCheckedModeBanner: false,
-      theme: _buildTheme(Brightness.light),
-      darkTheme: _buildTheme(Brightness.dark),
-      themeMode: ThemeMode.system,
-      home: const MainShell(),
+    return BackupStateProvider(
+      child: MaterialApp(
+        title: 'CashBook',
+        debugShowCheckedModeBanner: false,
+        theme: _buildTheme(Brightness.light),
+        darkTheme: _buildTheme(Brightness.dark),
+        themeMode: ThemeMode.system,
+        home: const MainShell(),
+      ),
     );
   }
 
@@ -40,7 +43,8 @@ class CashBookApp extends StatelessWidget {
         scrolledUnderElevation: 2,
         elevation: 0,
       ),
-      cardTheme: CardTheme(
+      // FIX: CardThemeData (not CardTheme) for Flutter 3.38+
+      cardTheme: CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
