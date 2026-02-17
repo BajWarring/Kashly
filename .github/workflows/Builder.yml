@@ -39,5 +39,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: FlowCTRL_
+          name: Kashly_V_
           path: build/app/outputs/flutter-apk/app-release.apk
