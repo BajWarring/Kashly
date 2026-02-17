@@ -18,18 +18,23 @@ class _HomeScreenState extends State<HomeScreen> {
   final TextEditingController _searchController = TextEditingController();
   bool _isSearching = false;
   String _searchQuery = '';
-  late List<CashBook> _cashbooks;
+  List<CashBook> _cashbooks = [];
 
   @override
   void initState() {
     super.initState();
-    _cashbooks = CashbookLogic.getSampleCashbooks();
+    _load();
+  }
+
+  void _load() {
+    setState(() => _cashbooks = CashbookLogic.getCashbooks());
   }
 
   List<CashBook> get _filtered {
     if (_searchQuery.isEmpty) return _cashbooks;
-    return _cashbooks.where((b) =>
-        b.name.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+    return _cashbooks
+        .where((b) => b.name.toLowerCase().contains(_searchQuery.toLowerCase()))
+        .toList();
   }
 
   void _showFilterSheet() {
@@ -46,9 +51,10 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               const SizedBox(height: 8),
               Container(
-                width: 32, height: 4,
+                width: 32,
+                height: 4,
                 decoration: BoxDecoration(
-                  color: colorScheme.onSurfaceVariant.withOpacity(0.3),
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
@@ -57,17 +63,49 @@ class _HomeScreenState extends State<HomeScreen> {
                 child: Row(
                   children: [
                     Text('Sort & Filter',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(fontWeight: FontWeight.w600)),
                     const Spacer(),
-                    IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+                    IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context)),
                   ],
                 ),
               ),
-              _FilterTile(icon: Icons.trending_up_rounded, label: 'Positive Balance First', onTap: () => Navigator.pop(context)),
-              _FilterTile(icon: Icons.trending_down_rounded, label: 'Negative Balance First', onTap: () => Navigator.pop(context)),
-              _FilterTile(icon: Icons.sort_by_alpha_rounded, label: 'Name: A → Z', onTap: () => Navigator.pop(context)),
-              _FilterTile(icon: Icons.sort_by_alpha_rounded, label: 'Name: Z → A', onTap: () => Navigator.pop(context)),
-              _FilterTile(icon: Icons.currency_rupee_rounded, label: 'Balance: High → Low', onTap: () => Navigator.pop(context)),
+              _FilterTile(
+                  icon: Icons.trending_up_rounded,
+                  label: 'Positive Balance First',
+                  onTap: () {
+                    setState(() => _cashbooks.sort(
+                        (a, b) => b.balance.compareTo(a.balance)));
+                    Navigator.pop(context);
+                  }),
+              _FilterTile(
+                  icon: Icons.trending_down_rounded,
+                  label: 'Negative Balance First',
+                  onTap: () {
+                    setState(() => _cashbooks.sort(
+                        (a, b) => a.balance.compareTo(b.balance)));
+                    Navigator.pop(context);
+                  }),
+              _FilterTile(
+                  icon: Icons.sort_by_alpha_rounded,
+                  label: 'Name: A → Z',
+                  onTap: () {
+                    setState(() => _cashbooks
+                        .sort((a, b) => a.name.compareTo(b.name)));
+                    Navigator.pop(context);
+                  }),
+              _FilterTile(
+                  icon: Icons.sort_by_alpha_rounded,
+                  label: 'Name: Z → A',
+                  onTap: () {
+                    setState(() => _cashbooks
+                        .sort((a, b) => b.name.compareTo(a.name)));
+                    Navigator.pop(context);
+                  }),
               const SizedBox(height: 8),
             ],
           ),
@@ -82,7 +120,8 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (_) => AlertDialog(
         icon: const Icon(Icons.menu_book_rounded, size: 28),
-        title: const Text('New CashBook', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: const Text('New CashBook',
+            style: TextStyle(fontWeight: FontWeight.w600)),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -93,25 +132,35 @@ class _HomeScreenState extends State<HomeScreen> {
               decoration: InputDecoration(
                 labelText: 'CashBook Name',
                 hintText: 'e.g. Personal, Business, Travel...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12)),
                 prefixIcon: const Icon(Icons.edit_outlined),
               ),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           FilledButton(
-            onPressed: () {
-              // TODO: CashbookLogic.addCashbook(...)
+            onPressed: () async {
+              final name = nameCtrl.text.trim();
+              if (name.isEmpty) return;
               Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: const Text('CashBook created!'),
-                  behavior: SnackBarBehavior.floating,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
-                ),
-              );
+              await CashbookLogic.addCashbook(name);
+              _load();
+              if (mounted) {
+                BackupStateProvider.of(context).notifyDataChanged();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(
+                    content: Text('"$name" created!'),
+                    behavior: SnackBarBehavior.floating,
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(10)),
+                  ),
+                );
+              }
             },
             child: const Text('Create'),
           ),
@@ -136,7 +185,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(color: colorScheme.onSurface),
                 decoration: InputDecoration(
                   hintText: 'Search cashbooks...',
-                  hintStyle: TextStyle(color: colorScheme.onSurfaceVariant),
+                  hintStyle:
+                      TextStyle(color: colorScheme.onSurfaceVariant),
                   border: InputBorder.none,
                 ),
                 onChanged: (v) => setState(() => _searchQuery = v),
@@ -150,22 +200,33 @@ class _HomeScreenState extends State<HomeScreen> {
                       color: colorScheme.primaryContainer,
                       borderRadius: BorderRadius.circular(10),
                     ),
-                    child: Icon(Icons.menu_book_rounded, size: 20, color: colorScheme.onPrimaryContainer),
+                    child: Icon(Icons.menu_book_rounded,
+                        size: 20,
+                        color: colorScheme.onPrimaryContainer),
                   ),
                   const SizedBox(width: 10),
-                  const Text('CashBook', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 20)),
+                  const Text('CashBook',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 20)),
                 ],
               ),
         actions: [
           if (_isSearching)
-            IconButton(icon: const Icon(Icons.close), onPressed: () => setState(() {
-              _isSearching = false;
-              _searchController.clear();
-              _searchQuery = '';
-            }))
+            IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => setState(() {
+                      _isSearching = false;
+                      _searchController.clear();
+                      _searchQuery = '';
+                    }))
           else ...[
-            IconButton(icon: const Icon(Icons.search_rounded), onPressed: () => setState(() => _isSearching = true)),
-            IconButton(icon: const Icon(Icons.filter_list_rounded), onPressed: _showFilterSheet),
+            IconButton(
+                icon: const Icon(Icons.search_rounded),
+                onPressed: () =>
+                    setState(() => _isSearching = true)),
+            IconButton(
+                icon: const Icon(Icons.filter_list_rounded),
+                onPressed: _showFilterSheet),
             const BackupStatusIcon(),
           ],
         ],
@@ -173,8 +234,9 @@ class _HomeScreenState extends State<HomeScreen> {
       body: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Summary banner
-          if (!_isSearching) _SummaryBanner(cashbooks: _cashbooks),
+          // Summary banner (only when there are cashbooks)
+          if (!_isSearching && _cashbooks.isNotEmpty)
+            _SummaryBanner(cashbooks: _cashbooks),
 
           // Section header
           Padding(
@@ -182,13 +244,17 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Row(
               children: [
                 Text('Your Books',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(
                           fontWeight: FontWeight.w700,
                           color: colorScheme.onSurface,
                         )),
                 const SizedBox(width: 8),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 2),
                   decoration: BoxDecoration(
                     color: colorScheme.secondaryContainer,
                     borderRadius: BorderRadius.circular(20),
@@ -210,16 +276,22 @@ class _HomeScreenState extends State<HomeScreen> {
             child: filtered.isEmpty
                 ? _EmptyState(onAdd: _showAddDialog)
                 : ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 0, 16, 100),
+                    padding:
+                        const EdgeInsets.fromLTRB(16, 0, 16, 100),
                     itemCount: filtered.length,
                     itemBuilder: (context, i) => CashBookCard(
                       cashbook: filtered[i],
-                      onTap: () => Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (_) => CashbookDetailScreen(cashbook: filtered[i]),
-                        ),
-                      ),
+                      onTap: () async {
+                        await Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => CashbookDetailScreen(
+                                cashbook: filtered[i]),
+                          ),
+                        );
+                        // Reload when returning — balances may have changed
+                        _load();
+                      },
                     ),
                   ),
           ),
@@ -228,7 +300,8 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddDialog,
         icon: const Icon(Icons.add_rounded),
-        label: const Text('New CashBook', style: TextStyle(fontWeight: FontWeight.w600)),
+        label: const Text('New CashBook',
+            style: TextStyle(fontWeight: FontWeight.w600)),
       ),
     );
   }
@@ -240,7 +313,7 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 }
 
-// ── Summary banner ─────────────────────────────────────────────────────────
+// ── Summary banner ──────────────────────────────────────────────────────────
 
 class _SummaryBanner extends StatelessWidget {
   final List<CashBook> cashbooks;
@@ -259,7 +332,10 @@ class _SummaryBanner extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         gradient: LinearGradient(
-          colors: [colorScheme.primaryContainer, colorScheme.secondaryContainer],
+          colors: [
+            colorScheme.primaryContainer,
+            colorScheme.secondaryContainer
+          ],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
@@ -272,13 +348,20 @@ class _SummaryBanner extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Net Balance across all books',
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onPrimaryContainer.withOpacity(0.8),
+                    style: Theme.of(context)
+                        .textTheme
+                        .labelSmall
+                        ?.copyWith(
+                          color: colorScheme.onPrimaryContainer
+                              .withValues(alpha: 0.8),
                         )),
                 const SizedBox(height: 4),
                 Text(
                   '${isPositive ? '+' : '−'} ₹${net.abs().toStringAsFixed(2)}',
-                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                  style: Theme.of(context)
+                      .textTheme
+                      .headlineSmall
+                      ?.copyWith(
                         fontWeight: FontWeight.w800,
                         color: isPositive
                             ? const Color(0xFF0E6027)
@@ -292,9 +375,17 @@ class _SummaryBanner extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
-              _NetStat(label: 'In', value: totalIn, isIn: true, colorScheme: colorScheme),
+              _NetStat(
+                  label: 'In',
+                  value: totalIn,
+                  isIn: true,
+                  colorScheme: colorScheme),
               const SizedBox(height: 6),
-              _NetStat(label: 'Out', value: totalOut, isIn: false, colorScheme: colorScheme),
+              _NetStat(
+                  label: 'Out',
+                  value: totalOut,
+                  isIn: false,
+                  colorScheme: colorScheme),
             ],
           ),
         ],
@@ -309,7 +400,11 @@ class _NetStat extends StatelessWidget {
   final bool isIn;
   final ColorScheme colorScheme;
 
-  const _NetStat({required this.label, required this.value, required this.isIn, required this.colorScheme});
+  const _NetStat(
+      {required this.label,
+      required this.value,
+      required this.isIn,
+      required this.colorScheme});
 
   @override
   Widget build(BuildContext context) {
@@ -317,43 +412,43 @@ class _NetStat extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(
-          isIn ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
+          isIn
+              ? Icons.arrow_downward_rounded
+              : Icons.arrow_upward_rounded,
           size: 12,
-          color: isIn ? const Color(0xFF1B8A3A) : colorScheme.error,
+          color:
+              isIn ? const Color(0xFF1B8A3A) : colorScheme.error,
         ),
         const SizedBox(width: 4),
         Text('$label ₹${value.toStringAsFixed(0)}',
             style: TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w600,
-              color: isIn ? const Color(0xFF1B8A3A) : colorScheme.error,
+              color:
+                  isIn ? const Color(0xFF1B8A3A) : colorScheme.error,
             )),
       ],
     );
   }
 }
 
-// ── Filter tile ────────────────────────────────────────────────────────────
-
 class _FilterTile extends StatelessWidget {
   final IconData icon;
   final String label;
   final VoidCallback onTap;
 
-  const _FilterTile({required this.icon, required this.label, required this.onTap});
+  const _FilterTile(
+      {required this.icon, required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
     return ListTile(
-      leading: Icon(icon, size: 22),
-      title: Text(label),
-      onTap: onTap,
-      dense: true,
-    );
+        leading: Icon(icon, size: 22),
+        title: Text(label),
+        onTap: onTap,
+        dense: true);
   }
 }
-
-// ── Empty state ────────────────────────────────────────────────────────────
 
 class _EmptyState extends StatelessWidget {
   final VoidCallback onAdd;
@@ -371,26 +466,35 @@ class _EmptyState extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(28),
               decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withOpacity(0.5),
+                color: colorScheme.primaryContainer.withValues(alpha: 0.5),
                 shape: BoxShape.circle,
               ),
-              child: Icon(Icons.menu_book_rounded, size: 52, color: colorScheme.primary),
+              child: Icon(Icons.menu_book_rounded,
+                  size: 52, color: colorScheme.primary),
             ),
             const SizedBox(height: 24),
             Text('No CashBooks Yet',
-                style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
-            Text('Create your first cashbook to start\ntracking income and expenses',
+            Text(
+                'Create your first cashbook to start\ntracking income and expenses',
                 textAlign: TextAlign.center,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: colorScheme.onSurfaceVariant)),
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.onSurfaceVariant)),
             const SizedBox(height: 28),
             FilledButton.icon(
               onPressed: onAdd,
               icon: const Icon(Icons.add_rounded),
-              label: const Text('Create CashBook', style: TextStyle(fontWeight: FontWeight.w600)),
+              label: const Text('Create CashBook',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
               style: FilledButton.styleFrom(
-                padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 24, vertical: 14),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
             ),
           ],

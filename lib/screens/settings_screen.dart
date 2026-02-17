@@ -27,15 +27,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
         scrolledUnderElevation: 2,
-        title: const Text('Settings', style: TextStyle(fontWeight: FontWeight.w700)),
+        title: const Text('Settings',
+            style: TextStyle(fontWeight: FontWeight.w700)),
         actions: [const BackupStatusIcon()],
       ),
       body: ListView(
         children: [
-          // ── Profile card ──────────────────────────────────────────────
+          // Profile card
           _ProfileCard(colorScheme: colorScheme),
 
-          // ── Backup section ────────────────────────────────────────────
+          // Backup section
           _SectionTitle(label: 'Backup & Sync'),
           _BackupStatusCard(
             backupInfo: backupInfo,
@@ -61,17 +62,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const Icon(Icons.chevron_right_rounded),
           ),
 
-          // ── Backup history ────────────────────────────────────────────
           if (backupInfo.history.isNotEmpty) ...[
             _SectionTitle(label: 'Backup History'),
             _BackupHistoryCard(
               history: backupInfo.history,
               colorScheme: colorScheme,
-              onRestore: (entry) => _showRestoreSpecificDialog(context, entry),
+              onRestore: (entry) =>
+                  _showRestoreSpecificDialog(context, entry),
             ),
           ],
 
-          // ── Preferences ───────────────────────────────────────────────
+          // Preferences
           _SectionTitle(label: 'Preferences'),
           _SettingsTile(
             icon: Icons.currency_rupee_rounded,
@@ -106,7 +107,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: (v) => setState(() => _biometrics = v),
           ),
 
-          // ── Data ──────────────────────────────────────────────────────
+          // Data
           _SectionTitle(label: 'Data'),
           _SettingsTile(
             icon: Icons.download_outlined,
@@ -125,12 +126,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const Icon(Icons.chevron_right_rounded),
           ),
 
-          // ── About ─────────────────────────────────────────────────────
+          // About
           _SectionTitle(label: 'About'),
           _SettingsTile(
             icon: Icons.info_outline_rounded,
             title: 'About CashBook',
-            subtitle: 'Version 1.0.0 · Your data is automatically backed up securely.',
+            subtitle: 'Version 1.0.0',
             colorScheme: colorScheme,
             onTap: () => showAboutDialog(
               context: context,
@@ -142,10 +143,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   color: colorScheme.primaryContainer,
                   borderRadius: BorderRadius.circular(12),
                 ),
-                child: Icon(Icons.menu_book_rounded, color: colorScheme.onPrimaryContainer),
+                child: Icon(Icons.menu_book_rounded,
+                    color: colorScheme.onPrimaryContainer),
               ),
               children: const [
-                Text('A beautiful cashbook app with Material Design 3.\n\nYour data is automatically backed up securely to Google Drive.'),
+                Text(
+                    'A beautiful cashbook app with Material Design 3.\n\nYour data is stored locally on your device.'),
               ],
             ),
             trailing: const Icon(Icons.chevron_right_rounded),
@@ -159,78 +162,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: const Icon(Icons.open_in_new_rounded, size: 18),
           ),
 
-          const SizedBox(height: 16),
-
-          // Sign out
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: FilledButton.tonalIcon(
-              icon: const Icon(Icons.logout_rounded),
-              label: const Text('Sign Out', style: TextStyle(fontWeight: FontWeight.w600)),
-              style: FilledButton.styleFrom(
-                minimumSize: const Size(double.infinity, 52),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
-              ),
-              onPressed: () => showDialog(
-                context: context,
-                builder: (_) => AlertDialog(
-                  icon: const Icon(Icons.logout_rounded, size: 28),
-                  title: const Text('Sign Out?'),
-                  content: const Text('You will need to log in again to access your data.'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-                    FilledButton(onPressed: () => Navigator.pop(context), child: const Text('Sign Out')),
-                  ],
-                ),
-              ),
-            ),
-          ),
           const SizedBox(height: 32),
         ],
       ),
     );
   }
 
-  void _showRestoreDialog(BuildContext context, BackupStateProviderState state) {
+  void _showRestoreDialog(
+      BuildContext context, BackupStateProviderState state) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         icon: const Icon(Icons.restore_rounded, size: 28),
         title: const Text('Restore Latest Backup?'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('This will replace all current local data with the latest cloud backup.\n\nThis action cannot be undone.'),
-            if (state.info.lastBackupTime != null) ...[
-              const SizedBox(height: 12),
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Row(
-                  children: [
-                    Icon(Icons.cloud_done_rounded, size: 16, color: Theme.of(context).colorScheme.primary),
-                    const SizedBox(width: 8),
-                    Text(
-                      'Latest: ${_fmtDate(state.info.lastBackupTime!)}',
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(fontWeight: FontWeight.w600),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ],
-        ),
+        content: const Text(
+            'This will replace all current local data with the latest cloud backup.\n\nThis action cannot be undone.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Restoring from backup…'), behavior: SnackBarBehavior.floating),
+                const SnackBar(
+                    content: Text('Restoring from backup…'),
+                    behavior: SnackBarBehavior.floating),
               );
             },
             child: const Text('Restore'),
@@ -240,21 +197,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showRestoreSpecificDialog(BuildContext context, BackupHistoryEntry entry) {
+  void _showRestoreSpecificDialog(
+      BuildContext context, BackupHistoryEntry entry) {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
         icon: const Icon(Icons.history_rounded, size: 28),
         title: const Text('Restore this backup?'),
-        content: Text('Restore backup from ${_fmtDate(entry.timestamp)}?\n\nSize: ${entry.size}'),
+        content:
+            Text('Restore backup from ${_fmtDate(entry.timestamp)}?\n\nSize: ${entry.size}'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
-                  content: Text('Restoring backup from ${_fmtDate(entry.timestamp)}…'),
+                  content: Text(
+                      'Restoring backup from ${_fmtDate(entry.timestamp)}…'),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -299,7 +261,8 @@ class _BackupStatusCard extends StatelessWidget {
         color: colorScheme.surfaceContainerLow,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
-          side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+          side: BorderSide(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
         ),
         margin: EdgeInsets.zero,
         child: Padding(
@@ -307,21 +270,24 @@ class _BackupStatusCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Status row
               Row(
                 children: [
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: isOk
-                          ? const Color(0xFF1B8A3A).withOpacity(0.1)
-                          : colorScheme.errorContainer.withOpacity(0.4),
+                          ? const Color(0xFF1B8A3A).withValues(alpha: 0.1)
+                          : colorScheme.errorContainer.withValues(alpha: 0.4),
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Icon(
-                      isOk ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
+                      isOk
+                          ? Icons.cloud_done_rounded
+                          : Icons.cloud_off_rounded,
                       size: 20,
-                      color: isOk ? const Color(0xFF1B8A3A) : colorScheme.error,
+                      color: isOk
+                          ? const Color(0xFF1B8A3A)
+                          : colorScheme.error,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -330,55 +296,28 @@ class _BackupStatusCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(backupInfo.statusLabel,
-                            style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                                  fontWeight: FontWeight.w700,
-                                )),
+                            style: Theme.of(context)
+                                .textTheme
+                                .titleSmall
+                                ?.copyWith(fontWeight: FontWeight.w700)),
                         if (backupInfo.connectedAccount != null)
-                          Text(
-                            backupInfo.connectedAccount!,
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  color: colorScheme.onSurfaceVariant,
-                                ),
-                          ),
+                          Text(backupInfo.connectedAccount!,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .bodySmall
+                                  ?.copyWith(
+                                      color:
+                                          colorScheme.onSurfaceVariant)),
                       ],
                     ),
                   ),
                 ],
               ),
-
-              // Error banner
-              if (backupInfo.status == BackupStatus.error &&
-                  backupInfo.errorMessage != null) ...[
-                const SizedBox(height: 10),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  decoration: BoxDecoration(
-                    color: colorScheme.errorContainer.withOpacity(0.4),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Row(
-                    children: [
-                      Icon(Icons.wifi_off_rounded, size: 15, color: colorScheme.error),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          backupInfo.errorMessage!,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: colorScheme.onErrorContainer,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-
               const SizedBox(height: 12),
-              Divider(height: 1, color: colorScheme.outlineVariant.withOpacity(0.5)),
+              Divider(
+                  height: 1,
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
               const SizedBox(height: 12),
-
-              // Stats row
               Row(
                 children: [
                   _MiniStat(
@@ -402,14 +341,12 @@ class _BackupStatusCard extends StatelessWidget {
                   ),
                 ],
               ),
-
               const SizedBox(height: 12),
-
-              // Backup now button
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.tonalIcon(
-                  icon: const Icon(Icons.cloud_upload_outlined, size: 18),
+                  icon:
+                      const Icon(Icons.cloud_upload_outlined, size: 18),
                   label: const Text('Backup Now',
                       style: TextStyle(fontWeight: FontWeight.w600)),
                   style: FilledButton.styleFrom(
@@ -449,7 +386,8 @@ class _MiniStat extends StatelessWidget {
   final String value;
   final ColorScheme colorScheme;
 
-  const _MiniStat({required this.label, required this.value, required this.colorScheme});
+  const _MiniStat(
+      {required this.label, required this.value, required this.colorScheme});
 
   @override
   Widget build(BuildContext context) {
@@ -464,7 +402,9 @@ class _MiniStat extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
-                style: TextStyle(fontSize: 10, color: colorScheme.onSurfaceVariant)),
+                style: TextStyle(
+                    fontSize: 10,
+                    color: colorScheme.onSurfaceVariant)),
             const SizedBox(height: 2),
             Text(value,
                 style: TextStyle(
@@ -478,8 +418,6 @@ class _MiniStat extends StatelessWidget {
     );
   }
 }
-
-// ── Backup history card ────────────────────────────────────────────────────
 
 class _BackupHistoryCard extends StatelessWidget {
   final List<BackupHistoryEntry> history;
@@ -501,7 +439,8 @@ class _BackupHistoryCard extends StatelessWidget {
         color: colorScheme.surfaceContainerLow,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(18),
-          side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.5)),
+          side: BorderSide(
+              color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
         ),
         margin: EdgeInsets.zero,
         child: Column(
@@ -511,12 +450,13 @@ class _BackupHistoryCard extends StatelessWidget {
             return Column(
               children: [
                 ListTile(
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                  contentPadding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                   leading: Container(
                     padding: const EdgeInsets.all(8),
                     decoration: BoxDecoration(
                       color: entry.isLatest
-                          ? const Color(0xFF1B8A3A).withOpacity(0.12)
+                          ? const Color(0xFF1B8A3A).withValues(alpha: 0.12)
                           : colorScheme.surfaceContainerHighest,
                       borderRadius: BorderRadius.circular(10),
                     ),
@@ -532,40 +472,32 @@ class _BackupHistoryCard extends StatelessWidget {
                   ),
                   title: Row(
                     children: [
-                      Text(
-                        _fmtDate(entry.timestamp),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.w600,
-                          fontSize: 13,
-                        ),
-                      ),
+                      Text(_fmtDate(entry.timestamp),
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 13)),
                       if (entry.isLatest) ...[
                         const SizedBox(width: 6),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
-                            color: const Color(0xFF1B8A3A).withOpacity(0.12),
+                            color: const Color(0xFF1B8A3A)
+                                .withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(6),
                           ),
-                          child: const Text(
-                            'Latest',
-                            style: TextStyle(
-                              fontSize: 10,
-                              color: Color(0xFF1B8A3A),
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+                          child: const Text('Latest',
+                              style: TextStyle(
+                                  fontSize: 10,
+                                  color: Color(0xFF1B8A3A),
+                                  fontWeight: FontWeight.w700)),
                         ),
                       ],
                     ],
                   ),
-                  subtitle: Text(
-                    entry.size,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: colorScheme.onSurfaceVariant,
-                    ),
-                  ),
+                  subtitle: Text(entry.size,
+                      style: TextStyle(
+                          fontSize: 12,
+                          color: colorScheme.onSurfaceVariant)),
                   trailing: IconButton(
                     icon: Icon(Icons.restore_rounded,
                         size: 20, color: colorScheme.primary),
@@ -578,7 +510,7 @@ class _BackupHistoryCard extends StatelessWidget {
                     height: 1,
                     indent: 16,
                     endIndent: 16,
-                    color: colorScheme.outlineVariant.withOpacity(0.4),
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.4),
                   ),
               ],
             );
@@ -596,8 +528,6 @@ class _BackupHistoryCard extends StatelessWidget {
   }
 }
 
-// ── Profile card ──────────────────────────────────────────────────────────
-
 class _ProfileCard extends StatelessWidget {
   final ColorScheme colorScheme;
   const _ProfileCard({required this.colorScheme});
@@ -608,7 +538,7 @@ class _ProfileCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       child: Card(
         elevation: 0,
-        color: colorScheme.primaryContainer.withOpacity(0.4),
+        color: colorScheme.primaryContainer.withValues(alpha: 0.4),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(20),
           side: BorderSide(color: colorScheme.primaryContainer),
@@ -619,11 +549,17 @@ class _ProfileCard extends StatelessWidget {
           child: Row(
             children: [
               Container(
-                width: 56, height: 56,
-                decoration: BoxDecoration(color: colorScheme.primary, shape: BoxShape.circle),
+                width: 56,
+                height: 56,
+                decoration: BoxDecoration(
+                    color: colorScheme.primary,
+                    shape: BoxShape.circle),
                 child: Center(
                   child: Text('U',
-                      style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: colorScheme.onPrimary)),
+                      style: TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: colorScheme.onPrimary)),
                 ),
               ),
               const SizedBox(width: 14),
@@ -631,13 +567,20 @@ class _ProfileCard extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('User', style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700)),
-                    Text('user@gmail.com',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                    Text('User',
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleMedium
+                            ?.copyWith(fontWeight: FontWeight.w700)),
+                    Text('Local account',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant)),
                   ],
                 ),
               ),
-              IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () {}),
+              IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () {}),
             ],
           ),
         ),
@@ -645,8 +588,6 @@ class _ProfileCard extends StatelessWidget {
     );
   }
 }
-
-// ── Reusable components ────────────────────────────────────────────────────
 
 class _SectionTitle extends StatelessWidget {
   final String label;
@@ -690,14 +631,20 @@ class _SettingsTile extends StatelessWidget {
         ),
         child: Icon(icon, size: 20, color: colorScheme.onSecondaryContainer),
       ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      title: Text(title,
+          style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(subtitle,
-          style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12)),
+          style: TextStyle(
+              color: colorScheme.onSurfaceVariant, fontSize: 12)),
       trailing: trailing != null
-          ? IconTheme(data: IconThemeData(color: colorScheme.onSurfaceVariant, size: 20), child: trailing!)
+          ? IconTheme(
+              data: IconThemeData(
+                  color: colorScheme.onSurfaceVariant, size: 20),
+              child: trailing!)
           : null,
       onTap: onTap,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
     );
   }
 }
@@ -724,14 +671,18 @@ class _SwitchTile extends StatelessWidget {
           color: colorScheme.secondaryContainer,
           borderRadius: BorderRadius.circular(10),
         ),
-        child: Icon(icon, size: 20, color: colorScheme.onSecondaryContainer),
+        child: Icon(icon,
+            size: 20, color: colorScheme.onSecondaryContainer),
       ),
-      title: Text(title, style: const TextStyle(fontWeight: FontWeight.w600)),
+      title: Text(title,
+          style: const TextStyle(fontWeight: FontWeight.w600)),
       subtitle: Text(subtitle,
-          style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 12)),
+          style: TextStyle(
+              color: colorScheme.onSurfaceVariant, fontSize: 12)),
       value: value,
       onChanged: onChanged,
-      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
+      contentPadding:
+          const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
     );
   }
 }

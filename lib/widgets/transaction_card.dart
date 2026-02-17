@@ -26,7 +26,7 @@ class TransactionCard extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(16),
-        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.6)),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.6)),
       ),
       color: colorScheme.surface,
       child: InkWell(
@@ -37,33 +37,32 @@ class TransactionCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Direction icon
               Container(
                 width: 44,
                 height: 44,
                 margin: const EdgeInsets.only(top: 2),
                 decoration: BoxDecoration(
                   color: isCashIn
-                      ? const Color(0xFF1B8A3A).withOpacity(0.1)
-                      : colorScheme.errorContainer.withOpacity(0.5),
+                      ? const Color(0xFF1B8A3A).withValues(alpha: 0.1)
+                      : colorScheme.errorContainer.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Icon(
                   isCashIn
                       ? Icons.arrow_downward_rounded
                       : Icons.arrow_upward_rounded,
-                  color: isCashIn ? const Color(0xFF1B8A3A) : colorScheme.error,
+                  color: isCashIn
+                      ? const Color(0xFF1B8A3A)
+                      : colorScheme.error,
                   size: 20,
                 ),
               ),
               const SizedBox(width: 12),
 
-              // Middle — remarks / category / chips / time
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Remarks or category as title
                     Text(
                       hasRemarks ? transaction.remarks! : transaction.category,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -74,7 +73,6 @@ class TransactionCard extends StatelessWidget {
                       overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 5),
-                    // Chips row
                     Wrap(
                       spacing: 6,
                       runSpacing: 4,
@@ -92,7 +90,6 @@ class TransactionCard extends StatelessWidget {
                       ],
                     ),
                     const SizedBox(height: 5),
-                    // Time
                     Text(
                       _formatTime(transaction.dateTime),
                       style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -105,11 +102,9 @@ class TransactionCard extends StatelessWidget {
 
               const SizedBox(width: 10),
 
-              // Right — amount + running balance
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
-                  // Transaction amount
                   Text(
                     '${isCashIn ? '+' : '−'} ₹${transaction.amount.toStringAsFixed(2)}',
                     style: Theme.of(context).textTheme.titleSmall?.copyWith(
@@ -126,13 +121,17 @@ class TransactionCard extends StatelessWidget {
                       children: [
                         Text(
                           'Bal ',
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              ),
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(color: colorScheme.onSurfaceVariant),
                         ),
                         Text(
                           '₹${runningBalance!.abs().toStringAsFixed(2)}',
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                          style: Theme.of(context)
+                              .textTheme
+                              .labelSmall
+                              ?.copyWith(
                                 fontWeight: FontWeight.w600,
                                 color: runningBalance! >= 0
                                     ? const Color(0xFF1B8A3A)
@@ -152,7 +151,8 @@ class TransactionCard extends StatelessWidget {
   }
 
   String _formatTime(DateTime dt) {
-    final hour = dt.hour == 0 ? 12 : (dt.hour > 12 ? dt.hour - 12 : dt.hour);
+    final hour =
+        dt.hour == 0 ? 12 : (dt.hour > 12 ? dt.hour - 12 : dt.hour);
     final min = dt.minute.toString().padLeft(2, '0');
     final period = dt.hour >= 12 ? 'PM' : 'AM';
     return '$hour:$min $period';
@@ -164,7 +164,8 @@ class _MicroChip extends StatelessWidget {
   final String label;
   final ColorScheme colorScheme;
 
-  const _MicroChip({required this.icon, required this.label, required this.colorScheme});
+  const _MicroChip(
+      {required this.icon, required this.label, required this.colorScheme});
 
   @override
   Widget build(BuildContext context) {

@@ -21,20 +21,21 @@ class BalanceSummaryCard extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: Column(
           children: [
-            // Balance row
             Row(
               children: [
                 Container(
                   padding: const EdgeInsets.all(11),
                   decoration: BoxDecoration(
                     color: isPositive
-                        ? const Color(0xFF1B8A3A).withOpacity(0.12)
-                        : colorScheme.errorContainer.withOpacity(0.6),
+                        ? const Color(0xFF1B8A3A).withValues(alpha: 0.12)
+                        : colorScheme.errorContainer.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Icon(
                     Icons.account_balance_wallet_rounded,
-                    color: isPositive ? const Color(0xFF1B8A3A) : colorScheme.error,
+                    color: isPositive
+                        ? const Color(0xFF1B8A3A)
+                        : colorScheme.error,
                     size: 22,
                   ),
                 ),
@@ -44,16 +45,22 @@ class BalanceSummaryCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Overall Balance',
-                          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                                color: colorScheme.onSurfaceVariant,
-                              )),
+                          style:
+                              Theme.of(context).textTheme.labelMedium?.copyWith(
+                                    color: colorScheme.onSurfaceVariant,
+                                  )),
                       const SizedBox(height: 2),
                       Text(
                         '${isPositive ? '+' : '−'} ₹${cashbook.balance.abs().toStringAsFixed(2)}',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                        style: Theme.of(context)
+                            .textTheme
+                            .headlineSmall
+                            ?.copyWith(
                               fontWeight: FontWeight.w800,
                               letterSpacing: -0.5,
-                              color: isPositive ? const Color(0xFF1B8A3A) : colorScheme.error,
+                              color: isPositive
+                                  ? const Color(0xFF1B8A3A)
+                                  : colorScheme.error,
                             ),
                       ),
                     ],
@@ -63,10 +70,11 @@ class BalanceSummaryCard extends StatelessWidget {
             ),
 
             const SizedBox(height: 16),
-            Divider(height: 1, color: colorScheme.outlineVariant.withOpacity(0.6)),
+            Divider(
+                height: 1,
+                color: colorScheme.outlineVariant.withValues(alpha: 0.6)),
             const SizedBox(height: 14),
 
-            // In / Out split
             Row(
               children: [
                 Expanded(
@@ -78,7 +86,11 @@ class BalanceSummaryCard extends StatelessWidget {
                     colorScheme: colorScheme,
                   ),
                 ),
-                Container(width: 1, height: 52, color: colorScheme.outlineVariant.withOpacity(0.5)),
+                Container(
+                    width: 1,
+                    height: 52,
+                    color:
+                        colorScheme.outlineVariant.withValues(alpha: 0.5)),
                 Expanded(
                   child: _StatColumn(
                     label: 'Total Out',
@@ -105,13 +117,17 @@ class _StatColumn extends StatelessWidget {
   final ColorScheme colorScheme;
 
   const _StatColumn({
-    required this.label, required this.amount,
-    required this.icon, required this.isIn, required this.colorScheme,
+    required this.label,
+    required this.amount,
+    required this.icon,
+    required this.isIn,
+    required this.colorScheme,
   });
 
   @override
   Widget build(BuildContext context) {
-    final color = isIn ? const Color(0xFF1B8A3A) : colorScheme.error;
+    final color =
+        isIn ? const Color(0xFF1B8A3A) : colorScheme.error;
     return Column(
       children: [
         Row(
@@ -120,7 +136,7 @@ class _StatColumn extends StatelessWidget {
             Container(
               padding: const EdgeInsets.all(5),
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 shape: BoxShape.circle,
               ),
               child: Icon(icon, size: 13, color: color),

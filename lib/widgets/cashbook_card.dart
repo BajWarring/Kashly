@@ -19,7 +19,7 @@ class CashBookCard extends StatelessWidget {
       elevation: 0,
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(18),
-        side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.7)),
+        side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.7)),
       ),
       color: colorScheme.surface,
       child: InkWell(
@@ -29,7 +29,6 @@ class CashBookCard extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           child: Row(
             children: [
-              // Book icon with initial
               Container(
                 width: 50,
                 height: 50,
@@ -39,7 +38,9 @@ class CashBookCard extends StatelessWidget {
                 ),
                 child: Center(
                   child: Text(
-                    cashbook.name.isNotEmpty ? cashbook.name[0].toUpperCase() : '?',
+                    cashbook.name.isNotEmpty
+                        ? cashbook.name[0].toUpperCase()
+                        : '?',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
@@ -50,7 +51,6 @@ class CashBookCard extends StatelessWidget {
               ),
               const SizedBox(width: 14),
 
-              // Name + in/out stats
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -71,14 +71,14 @@ class CashBookCard extends StatelessWidget {
                           icon: Icons.arrow_downward_rounded,
                           value: '₹${_fmt(cashbook.totalIn)}',
                           color: const Color(0xFF1B8A3A),
-                          bg: const Color(0xFF1B8A3A).withOpacity(0.1),
+                          bg: const Color(0xFF1B8A3A).withValues(alpha: 0.1),
                         ),
                         const SizedBox(width: 8),
                         _InOutBadge(
                           icon: Icons.arrow_upward_rounded,
                           value: '₹${_fmt(cashbook.totalOut)}',
                           color: colorScheme.error,
-                          bg: colorScheme.errorContainer.withOpacity(0.5),
+                          bg: colorScheme.errorContainer.withValues(alpha: 0.5),
                         ),
                       ],
                     ),
@@ -86,16 +86,16 @@ class CashBookCard extends StatelessWidget {
                 ),
               ),
 
-              // Balance
               Column(
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                     decoration: BoxDecoration(
                       color: isPositive
-                          ? const Color(0xFF1B8A3A).withOpacity(0.1)
-                          : colorScheme.errorContainer.withOpacity(0.6),
+                          ? const Color(0xFF1B8A3A).withValues(alpha: 0.1)
+                          : colorScheme.errorContainer.withValues(alpha: 0.6),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(
@@ -103,12 +103,15 @@ class CashBookCard extends StatelessWidget {
                       style: TextStyle(
                         fontWeight: FontWeight.w700,
                         fontSize: 13,
-                        color: isPositive ? const Color(0xFF1B8A3A) : colorScheme.error,
+                        color: isPositive
+                            ? const Color(0xFF1B8A3A)
+                            : colorScheme.error,
                       ),
                     ),
                   ),
                   const SizedBox(height: 4),
-                  Icon(Icons.chevron_right_rounded, size: 18, color: colorScheme.onSurfaceVariant),
+                  Icon(Icons.chevron_right_rounded,
+                      size: 18, color: colorScheme.onSurfaceVariant),
                 ],
               ),
             ],
@@ -131,19 +134,28 @@ class _InOutBadge extends StatelessWidget {
   final Color color;
   final Color bg;
 
-  const _InOutBadge({required this.icon, required this.value, required this.color, required this.bg});
+  const _InOutBadge(
+      {required this.icon,
+      required this.value,
+      required this.color,
+      required this.bg});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
       child: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 11, color: color),
           const SizedBox(width: 3),
-          Text(value, style: TextStyle(fontSize: 11, color: color, fontWeight: FontWeight.w600)),
+          Text(value,
+              style: TextStyle(
+                  fontSize: 11,
+                  color: color,
+                  fontWeight: FontWeight.w600)),
         ],
       ),
     );

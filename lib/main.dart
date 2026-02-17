@@ -1,11 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'logic/data_store.dart';
 import 'screens/home_screen.dart';
 import 'screens/settings_screen.dart';
 import 'state/backup_state.dart';
 
-void main() {
+void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // Initialise persistent data store before the app runs
+  await DataStore.instance.init();
+
   SystemChrome.setSystemUIOverlayStyle(const SystemUiOverlayStyle(
     statusBarColor: Colors.transparent,
   ));
@@ -43,12 +48,11 @@ class CashBookApp extends StatelessWidget {
         scrolledUnderElevation: 2,
         elevation: 0,
       ),
-      // FIX: CardThemeData (not CardTheme) for Flutter 3.38+
       cardTheme: CardThemeData(
         elevation: 0,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.6)),
+          side: BorderSide(color: colorScheme.outlineVariant),
         ),
       ),
       floatingActionButtonTheme: FloatingActionButtonThemeData(
@@ -64,7 +68,8 @@ class CashBookApp extends StatelessWidget {
       ),
       navigationBarTheme: NavigationBarThemeData(
         labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
-        indicatorShape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        indicatorShape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );
   }

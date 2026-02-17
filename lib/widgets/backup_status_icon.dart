@@ -3,7 +3,6 @@
 import 'package:flutter/material.dart';
 import '../state/backup_state.dart';
 
-/// Drop-in widget for AppBar actions — shows cloud icon with status
 class BackupStatusIcon extends StatefulWidget {
   final VoidCallback? onTap;
   const BackupStatusIcon({super.key, this.onTap});
@@ -24,7 +23,8 @@ class _BackupStatusIconState extends State<BackupStatusIcon>
       vsync: this,
       duration: const Duration(seconds: 2),
     );
-    _spinAnim = CurvedAnimation(parent: _spinController, curve: Curves.linear);
+    _spinAnim =
+        CurvedAnimation(parent: _spinController, curve: Curves.linear);
   }
 
   @override
@@ -74,7 +74,8 @@ class _BackupStatusIconState extends State<BackupStatusIcon>
                 decoration: BoxDecoration(
                   color: colorScheme.tertiary,
                   shape: BoxShape.circle,
-                  border: Border.all(color: colorScheme.surface, width: 1.5),
+                  border: Border.all(
+                      color: colorScheme.surface, width: 1.5),
                 ),
               ),
             ),
@@ -95,7 +96,8 @@ class _BackupStatusIconState extends State<BackupStatusIcon>
                 decoration: BoxDecoration(
                   color: colorScheme.error,
                   shape: BoxShape.circle,
-                  border: Border.all(color: colorScheme.surface, width: 1.5),
+                  border: Border.all(
+                      color: colorScheme.surface, width: 1.5),
                 ),
                 child: Icon(Icons.warning_rounded,
                     size: 8, color: colorScheme.onError),
@@ -142,7 +144,6 @@ class _BackupStatusIconState extends State<BackupStatusIcon>
   }
 }
 
-/// Mini status text line for display below headers
 class BackupStatusText extends StatelessWidget {
   const BackupStatusText({super.key});
 
@@ -184,111 +185,16 @@ class BackupStatusText extends StatelessWidget {
         const SizedBox(width: 4),
         Text(
           info.statusLabel,
-          style: TextStyle(fontSize: 11, color: textColor, fontWeight: FontWeight.w500),
+          style: TextStyle(
+              fontSize: 11,
+              color: textColor,
+              fontWeight: FontWeight.w500),
         ),
       ],
     );
   }
 }
 
-/// Inline "Saving…" feedback shown after a data mutation
-class SavingFeedback extends StatefulWidget {
-  final Widget child;
-  final bool saving;
-
-  const SavingFeedback({super.key, required this.child, required this.saving});
-
-  @override
-  State<SavingFeedback> createState() => _SavingFeedbackState();
-}
-
-class _SavingFeedbackState extends State<SavingFeedback>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _fade;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 400));
-    _fade = CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut);
-    if (widget.saving) _ctrl.forward();
-  }
-
-  @override
-  void didUpdateWidget(SavingFeedback old) {
-    super.didUpdateWidget(old);
-    if (widget.saving && !old.saving) {
-      _ctrl.forward();
-    } else if (!widget.saving && old.saving) {
-      _ctrl.reverse();
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Stack(
-      children: [
-        widget.child,
-        FadeTransition(
-          opacity: _fade,
-          child: Positioned(
-            bottom: 80,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Theme.of(context).colorScheme.inverseSurface,
-                  borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.12),
-                      blurRadius: 12,
-                    )
-                  ],
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    SizedBox(
-                      width: 14,
-                      height: 14,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Theme.of(context).colorScheme.onInverseSurface,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Text(
-                      'Saving…',
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.onInverseSurface,
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-}
-
-/// Bottom sheet showing full backup status
 class BackupStatusSheet extends StatelessWidget {
   final BackupStateProviderState state;
   const BackupStatusSheet({super.key, required this.state});
@@ -304,32 +210,25 @@ class BackupStatusSheet extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Handle
             Center(
               child: Container(
                 width: 32,
                 height: 4,
                 decoration: BoxDecoration(
-                  color: colorScheme.onSurfaceVariant.withOpacity(0.3),
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(2),
                 ),
               ),
             ),
             const SizedBox(height: 16),
-
-            // Status card
             _StatusCard(info: info, colorScheme: colorScheme),
             const SizedBox(height: 12),
-
-            // Error banner
             if (info.status == BackupStatus.error)
               _ErrorBanner(
                 message: info.errorMessage ??
                     'Backup paused — will retry when connection is available.',
                 colorScheme: colorScheme,
               ),
-
-            // Actions
             Row(
               children: [
                 Expanded(
@@ -426,13 +325,17 @@ class _StatusCard extends StatelessWidget {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: isGood
-                        ? const Color(0xFF1B8A3A).withOpacity(0.12)
-                        : colorScheme.errorContainer.withOpacity(0.5),
+                        ? const Color(0xFF1B8A3A).withValues(alpha: 0.12)
+                        : colorScheme.errorContainer.withValues(alpha: 0.5),
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    isGood ? Icons.cloud_done_rounded : Icons.cloud_off_rounded,
-                    color: isGood ? const Color(0xFF1B8A3A) : colorScheme.error,
+                    isGood
+                        ? Icons.cloud_done_rounded
+                        : Icons.cloud_off_rounded,
+                    color: isGood
+                        ? const Color(0xFF1B8A3A)
+                        : colorScheme.error,
                     size: 22,
                   ),
                 ),
@@ -441,20 +344,18 @@ class _StatusCard extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        info.statusLabel,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w700,
-                            ),
-                      ),
-                      if (info.connectedAccount != null)
-                        Text(
-                          info.connectedAccount!,
+                      Text(info.statusLabel,
                           style: Theme.of(context)
                               .textTheme
-                              .bodySmall
-                              ?.copyWith(color: colorScheme.onSurfaceVariant),
-                        ),
+                              .titleSmall
+                              ?.copyWith(fontWeight: FontWeight.w700)),
+                      if (info.connectedAccount != null)
+                        Text(info.connectedAccount!,
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                    color: colorScheme.onSurfaceVariant)),
                     ],
                   ),
                 ),
@@ -462,7 +363,9 @@ class _StatusCard extends StatelessWidget {
             ),
             if (info.lastBackupSize != null) ...[
               const SizedBox(height: 12),
-              Divider(height: 1, color: colorScheme.outlineVariant.withOpacity(0.5)),
+              Divider(
+                  height: 1,
+                  color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
               const SizedBox(height: 12),
               Row(
                 children: [
@@ -491,13 +394,16 @@ class _StatPill extends StatelessWidget {
   final ColorScheme colorScheme;
 
   const _StatPill(
-      {required this.label, required this.value, required this.colorScheme});
+      {required this.label,
+      required this.value,
+      required this.colorScheme});
 
   @override
   Widget build(BuildContext context) {
     return Expanded(
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        padding:
+            const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHighest,
           borderRadius: BorderRadius.circular(10),
@@ -506,7 +412,9 @@ class _StatPill extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
-                style: TextStyle(fontSize: 10, color: colorScheme.onSurfaceVariant)),
+                style: TextStyle(
+                    fontSize: 10,
+                    color: colorScheme.onSurfaceVariant)),
             const SizedBox(height: 2),
             Text(value,
                 style: TextStyle(
@@ -524,30 +432,32 @@ class _ErrorBanner extends StatelessWidget {
   final String message;
   final ColorScheme colorScheme;
 
-  const _ErrorBanner({required this.message, required this.colorScheme});
+  const _ErrorBanner(
+      {required this.message, required this.colorScheme});
 
   @override
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding:
+          const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: colorScheme.errorContainer.withOpacity(0.5),
+        color: colorScheme.errorContainer.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colorScheme.error.withOpacity(0.2)),
+        border: Border.all(
+            color: colorScheme.error.withValues(alpha: 0.2)),
       ),
       child: Row(
         children: [
-          Icon(Icons.wifi_off_rounded, size: 18, color: colorScheme.error),
+          Icon(Icons.wifi_off_rounded,
+              size: 18, color: colorScheme.error),
           const SizedBox(width: 10),
           Expanded(
-            child: Text(
-              message,
-              style: TextStyle(
-                  fontSize: 12,
-                  color: colorScheme.onErrorContainer,
-                  height: 1.4),
-            ),
+            child: Text(message,
+                style: TextStyle(
+                    fontSize: 12,
+                    color: colorScheme.onErrorContainer,
+                    height: 1.4)),
           ),
         ],
       ),

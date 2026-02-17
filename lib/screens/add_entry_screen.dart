@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../models/cashbook.dart';
 import '../models/transaction.dart';
+import '../logic/cashbook_logic.dart';
 
 class AddEntryScreen extends StatefulWidget {
   final CashBook cashbook;
@@ -26,7 +27,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   String? _selectedCategory;
   String? _selectedPaymentMethod;
 
-  // Mutable local copies of options (deleted defaults are excluded)
   late List<String> _activeCategories;
   late List<String> _activePaymentMethods;
   final List<String> _defaultCategories = const [
@@ -40,6 +40,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   final _amountController = TextEditingController();
   final _remarksController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
+  bool _saving = false;
 
   @override
   void initState() {
@@ -47,14 +48,11 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     _entryType = widget.initialEntryType;
     _selectedDate = DateTime.now();
     _selectedTime = TimeOfDay.now();
-    // Start with all defaults + custom
     _activeCategories = List<String>.from(widget.cashbook.allCategories);
     _activePaymentMethods = List<String>.from(widget.cashbook.allPaymentMethods);
     _selectedCategory = _activeCategories.first;
     _selectedPaymentMethod = _activePaymentMethods.first;
   }
-
-  // ── Date / time pickers ────────────────────────────────────────────────
 
   Future<void> _pickDate() async {
     final picked = await showDatePicker(
@@ -74,11 +72,34 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     if (picked != null) setState(() => _selectedTime = picked);
   }
 
-  // ── Save ───────────────────────────────────────────────────────────────
-
-  void _save({bool addNew = false}) {
+  Future<void> _save({bool addNew = false}) async {
     if (!_formKey.currentState!.validate()) return;
-    // TODO: CashbookLogic.addTransaction(...)
+    if (_saving) return;
+    setState(() => _saving = true);
+
+    final dateTime = DateTime(
+      _selectedDate.year,
+      _selectedDate.month,
+      _selectedDate.day,
+      _selectedTime.hour,
+      _selectedTime.minute,
+    );
+
+    await CashbookLogic.addTransaction(
+      cashbookId: widget.cashbook.id,
+      entryType: _entryType,
+      amount: double.parse(_amountController.text),
+      dateTime: dateTime,
+      category: _selectedCategory ?? _activeCategories.first,
+      paymentMethod: _selectedPaymentMethod ?? _activePaymentMethods.first,
+      remarks: _remarksController.text.trim().isEmpty
+          ? null
+          : _remarksController.text.trim(),
+    );
+
+    if (!mounted) return;
+    setState(() => _saving = false);
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -87,21 +108,23 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
       ),
     );
+
     if (addNew) {
       _amountController.clear();
       _remarksController.clear();
       setState(() {
         _selectedDate = DateTime.now();
         _selectedTime = TimeOfDay.now();
-        _selectedCategory = _activeCategories.isNotEmpty ? _activeCategories.first : null;
-        _selectedPaymentMethod = _activePaymentMethods.isNotEmpty ? _activePaymentMethods.first : null;
+        _selectedCategory =
+            _activeCategories.isNotEmpty ? _activeCategories.first : null;
+        _selectedPaymentMethod = _activePaymentMethods.isNotEmpty
+            ? _activePaymentMethods.first
+            : null;
       });
     } else {
       Navigator.pop(context);
     }
   }
-
-  // ── Manage options sheet ───────────────────────────────────────────────
 
   void _manageOptions({required bool isCategory}) {
     showModalBottomSheet(
@@ -118,8 +141,10 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
         builder: (context, scrollController) {
           return _ManageOptionsSheet(
             title: isCategory ? 'Manage Categories' : 'Manage Payment Methods',
-            defaultOptions: isCategory ? _defaultCategories : _defaultPaymentMethods,
-            activeOptions: isCategory ? _activeCategories : _activePaymentMethods,
+            defaultOptions:
+                isCategory ? _defaultCategories : _defaultPaymentMethods,
+            activeOptions:
+                isCategory ? _activeCategories : _activePaymentMethods,
             customOptions: isCategory
                 ? widget.cashbook.customCategories
                 : widget.cashbook.customPaymentMethods,
@@ -129,12 +154,14 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                 if (isCategory) {
                   _activeCategories = updated;
                   if (!updated.contains(_selectedCategory)) {
-                    _selectedCategory = updated.isNotEmpty ? updated.first : null;
+                    _selectedCategory =
+                        updated.isNotEmpty ? updated.first : null;
                   }
                 } else {
                   _activePaymentMethods = updated;
                   if (!updated.contains(_selectedPaymentMethod)) {
-                    _selectedPaymentMethod = updated.isNotEmpty ? updated.first : null;
+                    _selectedPaymentMethod =
+                        updated.isNotEmpty ? updated.first : null;
                   }
                 }
               });
@@ -144,8 +171,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       ),
     );
   }
-
-  // ── Build ──────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -160,70 +185,83 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           isCashIn ? 'Add Cash In' : 'Add Cash Out',
           style: const TextStyle(fontWeight: FontWeight.w600),
         ),
-        centerTitle: false,
       ),
       body: Form(
         key: _formKey,
         child: ListView(
           padding: const EdgeInsets.fromLTRB(16, 8, 16, 120),
           children: [
-            // Entry type toggle
             _EntryTypeToggle(
               selectedType: _entryType,
               onChanged: (t) => setState(() => _entryType = t),
             ),
             const SizedBox(height: 22),
 
-            // Amount
             _FieldLabel(label: 'Amount'),
             const SizedBox(height: 8),
             TextFormField(
               controller: _amountController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
-              inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}'))],
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(
+                    RegExp(r'^\d+\.?\d{0,2}'))
+              ],
               style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                     fontWeight: FontWeight.w800,
-                    color: isCashIn ? const Color(0xFF1B8A3A) : colorScheme.error,
+                    color: isCashIn
+                        ? const Color(0xFF1B8A3A)
+                        : colorScheme.error,
                     letterSpacing: -0.5,
                   ),
               decoration: InputDecoration(
                 prefixIcon: Padding(
-                  padding: const EdgeInsets.only(left: 18, right: 8, top: 4),
+                  padding:
+                      const EdgeInsets.only(left: 18, right: 8, top: 4),
                   child: Text('₹',
-                      style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                            color: colorScheme.onSurfaceVariant.withOpacity(0.5),
-                            fontWeight: FontWeight.w300,
-                          )),
+                      style:
+                          Theme.of(context).textTheme.headlineMedium?.copyWith(
+                                color: colorScheme.onSurfaceVariant
+                                    .withValues(alpha: 0.5),
+                                fontWeight: FontWeight.w300,
+                              )),
                 ),
-                prefixIconConstraints: const BoxConstraints(minWidth: 0),
+                prefixIconConstraints:
+                    const BoxConstraints(minWidth: 0),
                 hintText: '0.00',
-                hintStyle: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      color: colorScheme.onSurfaceVariant.withOpacity(0.3),
-                      fontWeight: FontWeight.w800,
-                    ),
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                hintStyle:
+                    Theme.of(context).textTheme.headlineMedium?.copyWith(
+                          color: colorScheme.onSurfaceVariant
+                              .withValues(alpha: 0.3),
+                          fontWeight: FontWeight.w800,
+                        ),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16)),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(color: colorScheme.outlineVariant),
+                  borderSide:
+                      BorderSide(color: colorScheme.outlineVariant),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(color: colorScheme.primary, width: 2),
+                  borderSide:
+                      BorderSide(color: colorScheme.primary, width: 2),
                 ),
                 filled: true,
                 fillColor: colorScheme.surfaceContainerLow,
-                contentPadding: const EdgeInsets.fromLTRB(0, 18, 18, 18),
+                contentPadding:
+                    const EdgeInsets.fromLTRB(0, 18, 18, 18),
               ),
               validator: (v) {
                 if (v == null || v.isEmpty) return 'Please enter an amount';
                 final n = double.tryParse(v);
-                if (n == null || n <= 0) return 'Enter a valid amount greater than 0';
+                if (n == null || n <= 0)
+                  return 'Enter a valid amount greater than 0';
                 return null;
               },
             ),
             const SizedBox(height: 22),
 
-            // Date & time
             _FieldLabel(label: 'Date & Time'),
             const SizedBox(height: 8),
             Row(
@@ -249,7 +287,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             ),
             const SizedBox(height: 22),
 
-            // Remarks
             _FieldLabel(label: 'Remarks', optional: true),
             const SizedBox(height: 8),
             TextFormField(
@@ -257,14 +294,17 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
               maxLines: 2,
               decoration: InputDecoration(
                 hintText: 'Add a note about this entry...',
-                border: OutlineInputBorder(borderRadius: BorderRadius.circular(16)),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(16)),
                 enabledBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(color: colorScheme.outlineVariant),
+                  borderSide:
+                      BorderSide(color: colorScheme.outlineVariant),
                 ),
                 focusedBorder: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(16),
-                  borderSide: BorderSide(color: colorScheme.primary, width: 2),
+                  borderSide:
+                      BorderSide(color: colorScheme.primary, width: 2),
                 ),
                 filled: true,
                 fillColor: colorScheme.surfaceContainerLow,
@@ -272,7 +312,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             ),
             const SizedBox(height: 22),
 
-            // Category
             _FieldLabel(label: 'Category'),
             const SizedBox(height: 8),
             _ChipSelector(
@@ -284,13 +323,13 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             ),
             const SizedBox(height: 22),
 
-            // Payment Method
             _FieldLabel(label: 'Payment Method'),
             const SizedBox(height: 8),
             _ChipSelector(
               options: _activePaymentMethods,
               selected: _selectedPaymentMethod,
-              onSelected: (v) => setState(() => _selectedPaymentMethod = v),
+              onSelected: (v) =>
+                  setState(() => _selectedPaymentMethod = v),
               onManage: () => _manageOptions(isCategory: false),
               colorScheme: colorScheme,
             ),
@@ -299,6 +338,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       ),
       bottomNavigationBar: _SaveBar(
         isCashIn: isCashIn,
+        saving: _saving,
         onSave: () => _save(),
         onSaveAndNew: () => _save(addNew: true),
         colorScheme: colorScheme,
@@ -319,12 +359,11 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   }
 }
 
-// ── Entry Type Toggle ──────────────────────────────────────────────────────
+// ── Entry Type Toggle ─────────────────────────────────────────────────────
 
 class _EntryTypeToggle extends StatelessWidget {
   final EntryType selectedType;
   final void Function(EntryType) onChanged;
-
   const _EntryTypeToggle({required this.selectedType, required this.onChanged});
 
   @override
@@ -386,13 +425,14 @@ class _Tab extends StatelessWidget {
             color: isSelected ? selectedBg : Colors.transparent,
             borderRadius: BorderRadius.circular(13),
             boxShadow: isSelected
-                ? [BoxShadow(color: selectedColor.withOpacity(0.15), blurRadius: 8, offset: const Offset(0, 2))]
+                ? [BoxShadow(color: selectedColor.withValues(alpha: 0.15), blurRadius: 8, offset: const Offset(0, 2))]
                 : [],
           ),
           child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(icon, size: 18, color: isSelected ? selectedColor : Theme.of(context).colorScheme.onSurfaceVariant),
+              Icon(icon, size: 18,
+                  color: isSelected ? selectedColor : Theme.of(context).colorScheme.onSurfaceVariant),
               const SizedBox(width: 8),
               Text(label,
                   style: TextStyle(
@@ -406,8 +446,6 @@ class _Tab extends StatelessWidget {
     );
   }
 }
-
-// ── Field Label ────────────────────────────────────────────────────────────
 
 class _FieldLabel extends StatelessWidget {
   final String label;
@@ -435,8 +473,6 @@ class _FieldLabel extends StatelessWidget {
     );
   }
 }
-
-// ── Tap tile (date/time picker) ────────────────────────────────────────────
 
 class _TapTile extends StatelessWidget {
   final IconData icon;
@@ -474,8 +510,6 @@ class _TapTile extends StatelessWidget {
   }
 }
 
-// ── Chip Selector ──────────────────────────────────────────────────────────
-
 class _ChipSelector extends StatelessWidget {
   final List<String> options;
   final String? selected;
@@ -506,7 +540,7 @@ class _ChipSelector extends StatelessWidget {
               fontWeight: selected == opt ? FontWeight.w700 : FontWeight.normal,
             ),
             side: BorderSide(
-              color: selected == opt ? colorScheme.primary.withOpacity(0.4) : colorScheme.outlineVariant,
+              color: selected == opt ? colorScheme.primary.withValues(alpha: 0.4) : colorScheme.outlineVariant,
             ),
           ),
         ),
@@ -521,20 +555,23 @@ class _ChipSelector extends StatelessWidget {
   }
 }
 
-// ── Save bar ───────────────────────────────────────────────────────────────
-
 class _SaveBar extends StatelessWidget {
   final bool isCashIn;
+  final bool saving;
   final VoidCallback onSave;
   final VoidCallback onSaveAndNew;
   final ColorScheme colorScheme;
 
-  const _SaveBar({required this.isCashIn, required this.onSave, required this.onSaveAndNew, required this.colorScheme});
+  const _SaveBar({
+    required this.isCashIn, required this.saving,
+    required this.onSave, required this.onSaveAndNew, required this.colorScheme,
+  });
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.fromLTRB(16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
+      padding: EdgeInsets.fromLTRB(
+          16, 12, 16, MediaQuery.of(context).padding.bottom + 12),
       decoration: BoxDecoration(
         color: colorScheme.surface,
         border: Border(top: BorderSide(color: colorScheme.outlineVariant)),
@@ -547,23 +584,31 @@ class _SaveBar extends StatelessWidget {
               label: const Text('Save & Add New'),
               style: OutlinedButton.styleFrom(
                 padding: const EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
-              onPressed: onSaveAndNew,
+              onPressed: saving ? null : onSaveAndNew,
             ),
           ),
           const SizedBox(width: 12),
           Expanded(
             child: FilledButton.icon(
-              icon: const Icon(Icons.check_rounded, size: 18),
-              label: const Text('Save', style: TextStyle(fontWeight: FontWeight.w700)),
+              icon: saving
+                  ? const SizedBox(
+                      width: 16, height: 16,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                  : const Icon(Icons.check_rounded, size: 18),
+              label: const Text('Save',
+                  style: TextStyle(fontWeight: FontWeight.w700)),
               style: FilledButton.styleFrom(
-                backgroundColor: isCashIn ? const Color(0xFF1B8A3A) : colorScheme.error,
+                backgroundColor:
+                    isCashIn ? const Color(0xFF1B8A3A) : colorScheme.error,
                 foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(vertical: 15),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(14)),
               ),
-              onPressed: onSave,
+              onPressed: saving ? null : onSave,
             ),
           ),
         ],
@@ -583,12 +628,9 @@ class _ManageOptionsSheet extends StatefulWidget {
   final void Function(List<String>) onChanged;
 
   const _ManageOptionsSheet({
-    required this.title,
-    required this.defaultOptions,
-    required this.activeOptions,
-    required this.customOptions,
-    required this.scrollController,
-    required this.onChanged,
+    required this.title, required this.defaultOptions,
+    required this.activeOptions, required this.customOptions,
+    required this.scrollController, required this.onChanged,
   });
 
   @override
@@ -607,16 +649,12 @@ class _ManageOptionsSheetState extends State<_ManageOptionsSheet> {
     _custom = List.from(widget.customOptions);
   }
 
-  bool _isDefault(String opt) => widget.defaultOptions.contains(opt);
   bool _isActive(String opt) => _active.contains(opt);
 
   void _toggleDefault(String opt, bool enable) {
     setState(() {
-      if (enable) {
-        if (!_active.contains(opt)) _active.add(opt);
-      } else {
-        _active.remove(opt);
-      }
+      if (enable) { if (!_active.contains(opt)) _active.add(opt); }
+      else { _active.remove(opt); }
     });
   }
 
@@ -627,18 +665,12 @@ class _ManageOptionsSheetState extends State<_ManageOptionsSheet> {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Already exists')));
       return;
     }
-    setState(() {
-      _custom.add(v);
-      _active.add(v);
-    });
+    setState(() { _custom.add(v); _active.add(v); });
     _addCtrl.clear();
   }
 
   void _deleteCustom(String opt) {
-    setState(() {
-      _custom.remove(opt);
-      _active.remove(opt);
-    });
+    setState(() { _custom.remove(opt); _active.remove(opt); });
   }
 
   void _renameCustom(String old) {
@@ -670,57 +702,26 @@ class _ManageOptionsSheetState extends State<_ManageOptionsSheet> {
     );
   }
 
-  void _resetCustom() {
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        title: const Text('Reset custom options?'),
-        content: const Text('All custom options will be removed. Default options can still be toggled.'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
-          FilledButton(
-            onPressed: () {
-              setState(() {
-                for (final c in _custom) _active.remove(c);
-                _custom.clear();
-              });
-              Navigator.pop(context);
-            },
-            child: const Text('Reset'),
-          ),
-        ],
-      ),
-    );
-  }
-
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     return Column(
       children: [
-        // Handle + header
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
           child: Column(
             children: [
-              Container(
-                width: 32, height: 4,
+              Container(width: 32, height: 4,
                 decoration: BoxDecoration(
-                  color: colorScheme.onSurfaceVariant.withOpacity(0.3),
+                  color: colorScheme.onSurfaceVariant.withValues(alpha: 0.3),
                   borderRadius: BorderRadius.circular(2),
-                ),
-              ),
+                )),
               const SizedBox(height: 14),
               Row(
                 children: [
-                  Text(widget.title, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
+                  Text(widget.title,
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w700)),
                   const Spacer(),
-                  TextButton.icon(
-                    icon: const Icon(Icons.refresh_rounded, size: 15),
-                    label: const Text('Reset Custom'),
-                    onPressed: _resetCustom,
-                    style: TextButton.styleFrom(visualDensity: VisualDensity.compact),
-                  ),
                 ],
               ),
             ],
@@ -731,7 +732,6 @@ class _ManageOptionsSheetState extends State<_ManageOptionsSheet> {
             controller: widget.scrollController,
             padding: const EdgeInsets.all(16),
             children: [
-              // Add custom field
               Row(
                 children: [
                   Expanded(
@@ -759,15 +759,11 @@ class _ManageOptionsSheetState extends State<_ManageOptionsSheet> {
                 ],
               ),
               const SizedBox(height: 20),
-
-              // Default options with toggle to show/hide
               Text('Default Options',
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
-                        fontWeight: FontWeight.w700,
-                      )),
+                        color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700)),
               const SizedBox(height: 4),
-              Text('Toggle to show/hide in the entry form',
+              Text('Toggle to show/hide in entry form',
                   style: Theme.of(context).textTheme.bodySmall?.copyWith(color: colorScheme.onSurfaceVariant)),
               const SizedBox(height: 10),
               ...widget.defaultOptions.map((opt) => Card(
@@ -775,7 +771,7 @@ class _ManageOptionsSheetState extends State<_ManageOptionsSheet> {
                     margin: const EdgeInsets.only(bottom: 6),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(12),
-                      side: BorderSide(color: colorScheme.outlineVariant.withOpacity(0.6)),
+                      side: BorderSide(color: colorScheme.outlineVariant.withValues(alpha: 0.6)),
                     ),
                     child: SwitchListTile(
                       value: _isActive(opt),
@@ -790,14 +786,11 @@ class _ManageOptionsSheetState extends State<_ManageOptionsSheet> {
                       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   )),
-
               if (_custom.isNotEmpty) ...[
                 const SizedBox(height: 20),
                 Text('Custom Options',
                     style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontWeight: FontWeight.w700,
-                        )),
+                          color: colorScheme.onSurfaceVariant, fontWeight: FontWeight.w700)),
                 const SizedBox(height: 10),
                 ..._custom.map((opt) => Card(
                       elevation: 0,
@@ -806,7 +799,7 @@ class _ManageOptionsSheetState extends State<_ManageOptionsSheet> {
                         borderRadius: BorderRadius.circular(12),
                         side: BorderSide(color: colorScheme.primaryContainer),
                       ),
-                      color: colorScheme.primaryContainer.withOpacity(0.2),
+                      color: colorScheme.primaryContainer.withValues(alpha: 0.2),
                       child: ListTile(
                         leading: Container(
                           padding: const EdgeInsets.all(6),
@@ -820,18 +813,8 @@ class _ManageOptionsSheetState extends State<_ManageOptionsSheet> {
                         trailing: Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit_outlined),
-                              onPressed: () => _renameCustom(opt),
-                              visualDensity: VisualDensity.compact,
-                              iconSize: 20,
-                            ),
-                            IconButton(
-                              icon: Icon(Icons.delete_outline, color: colorScheme.error),
-                              onPressed: () => _deleteCustom(opt),
-                              visualDensity: VisualDensity.compact,
-                              iconSize: 20,
-                            ),
+                            IconButton(icon: const Icon(Icons.edit_outlined), onPressed: () => _renameCustom(opt), visualDensity: VisualDensity.compact, iconSize: 20),
+                            IconButton(icon: Icon(Icons.delete_outline, color: colorScheme.error), onPressed: () => _deleteCustom(opt), visualDensity: VisualDensity.compact, iconSize: 20),
                           ],
                         ),
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
@@ -842,7 +825,6 @@ class _ManageOptionsSheetState extends State<_ManageOptionsSheet> {
             ],
           ),
         ),
-        // Apply button
         Padding(
           padding: EdgeInsets.fromLTRB(16, 8, 16, MediaQuery.of(context).padding.bottom + 12),
           child: FilledButton.icon(
@@ -863,8 +845,5 @@ class _ManageOptionsSheetState extends State<_ManageOptionsSheet> {
   }
 
   @override
-  void dispose() {
-    _addCtrl.dispose();
-    super.dispose();
-  }
+  void dispose() { _addCtrl.dispose(); super.dispose(); }
 }

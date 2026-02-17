@@ -2,6 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../models/cashbook.dart';
+import '../logic/cashbook_logic.dart';
 
 class CashbookOptionsScreen extends StatefulWidget {
   final CashBook cashbook;
@@ -46,7 +47,7 @@ class _CashbookOptionsScreenState extends State<CashbookOptionsScreen>
         children: [
           _OptionsTabUI(
             sectionTitle: 'Categories',
-            defaults: [
+            defaults: const [
               'General', 'Food & Drinks', 'Transport', 'Salary',
               'Business', 'Bills & Utilities', 'Shopping',
               'Entertainment', 'Healthcare', 'Investment',
@@ -63,12 +64,13 @@ class _CashbookOptionsScreenState extends State<CashbookOptionsScreen>
           ),
           _OptionsTabUI(
             sectionTitle: 'Payment Methods',
-            defaults: [
+            defaults: const [
               'Cash', 'Bank Transfer', 'UPI', 'Card', 'Cheque', 'Other',
             ],
             customs: _customPaymentMethods,
             onAdd: (v) => setState(() => _customPaymentMethods.add(v)),
-            onDelete: (v) => setState(() => _customPaymentMethods.remove(v)),
+            onDelete: (v) =>
+                setState(() => _customPaymentMethods.remove(v)),
             onRename: (old, newVal) => setState(() {
               final idx = _customPaymentMethods.indexOf(old);
               if (idx != -1) _customPaymentMethods[idx] = newVal;
@@ -87,18 +89,23 @@ class _CashbookOptionsScreenState extends State<CashbookOptionsScreen>
             style: FilledButton.styleFrom(
               padding: const EdgeInsets.symmetric(vertical: 14),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(14),
-              ),
+                  borderRadius: BorderRadius.circular(14)),
             ),
-            onPressed: () {
-              // TODO: CashbookLogic.updateCashbookOptions(...)
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Options saved'),
-                  behavior: SnackBarBehavior.floating,
-                ),
+            onPressed: () async {
+              await CashbookLogic.updateCashbookOptions(
+                cashbookId: widget.cashbook.id,
+                customCategories: _customCategories,
+                customPaymentMethods: _customPaymentMethods,
               );
-              Navigator.pop(context);
+              if (mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Options saved'),
+                    behavior: SnackBarBehavior.floating,
+                  ),
+                );
+                Navigator.pop(context);
+              }
             },
           ),
         ),
@@ -162,9 +169,8 @@ class _OptionsTabUIState extends State<_OptionsTabUI> {
         content: const Text('All custom options will be removed.'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancel'),
-          ),
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           FilledButton(
             onPressed: () {
               Navigator.pop(context);
@@ -210,21 +216,20 @@ class _OptionsTabUIState extends State<_OptionsTabUI> {
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Add field
         Row(
           children: [
             Expanded(
               child: TextField(
                 controller: _controller,
                 decoration: InputDecoration(
-                  hintText: 'New ${widget.sectionTitle.toLowerCase()} option...',
+                  hintText:
+                      'New ${widget.sectionTitle.toLowerCase()} option...',
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+                      borderRadius: BorderRadius.circular(12)),
                   filled: true,
                   fillColor: widget.colorScheme.surfaceContainerLow,
-                  contentPadding:
-                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  contentPadding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
                 ),
                 onSubmitted: (_) => _addOption(),
               ),
@@ -233,11 +238,10 @@ class _OptionsTabUIState extends State<_OptionsTabUI> {
             FilledButton(
               onPressed: _addOption,
               style: FilledButton.styleFrom(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 20, vertical: 14),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(12),
-                ),
+                    borderRadius: BorderRadius.circular(12)),
               ),
               child: const Icon(Icons.add),
             ),
@@ -245,23 +249,18 @@ class _OptionsTabUIState extends State<_OptionsTabUI> {
         ),
         const SizedBox(height: 20),
 
-        // Default options
         Row(
           children: [
-            Text(
-              'Default Options',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: widget.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
+            Text('Default Options',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: widget.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    )),
             const Spacer(),
-            Text(
-              'Read-only',
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: widget.colorScheme.onSurfaceVariant,
-                  ),
-            ),
+            Text('Read-only',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: widget.colorScheme.onSurfaceVariant,
+                    )),
           ],
         ),
         const SizedBox(height: 10),
@@ -269,30 +268,26 @@ class _OptionsTabUIState extends State<_OptionsTabUI> {
           spacing: 8,
           runSpacing: 8,
           children: widget.defaults
-              .map(
-                (opt) => Chip(
-                  label: Text(opt),
-                  backgroundColor:
-                      widget.colorScheme.surfaceContainerHighest,
-                  avatar: Icon(Icons.lock_outline,
-                      size: 14, color: widget.colorScheme.onSurfaceVariant),
-                ),
-              )
+              .map((opt) => Chip(
+                    label: Text(opt),
+                    backgroundColor:
+                        widget.colorScheme.surfaceContainerHighest,
+                    avatar: Icon(Icons.lock_outline,
+                        size: 14,
+                        color: widget.colorScheme.onSurfaceVariant),
+                  ))
               .toList(),
         ),
 
         const SizedBox(height: 20),
 
-        // Custom options
         Row(
           children: [
-            Text(
-              'Custom Options',
-              style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                    color: widget.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
-                  ),
-            ),
+            Text('Custom Options',
+                style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: widget.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    )),
             const Spacer(),
             if (widget.customs.isNotEmpty)
               TextButton.icon(
@@ -300,8 +295,7 @@ class _OptionsTabUIState extends State<_OptionsTabUI> {
                 label: const Text('Reset Custom'),
                 onPressed: _confirmReset,
                 style: TextButton.styleFrom(
-                  visualDensity: VisualDensity.compact,
-                ),
+                    visualDensity: VisualDensity.compact),
               ),
           ],
         ),
@@ -313,29 +307,23 @@ class _OptionsTabUIState extends State<_OptionsTabUI> {
             decoration: BoxDecoration(
               color: widget.colorScheme.surfaceContainerLow,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: widget.colorScheme.outlineVariant,
-                style: BorderStyle.solid,
-              ),
+              border: Border.all(color: widget.colorScheme.outlineVariant),
             ),
             child: Column(
               children: [
                 Icon(Icons.add_circle_outline,
-                    size: 32, color: widget.colorScheme.onSurfaceVariant),
+                    size: 32,
+                    color: widget.colorScheme.onSurfaceVariant),
                 const SizedBox(height: 8),
-                Text(
-                  'No custom options yet',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: widget.colorScheme.onSurfaceVariant,
-                      ),
-                ),
+                Text('No custom options yet',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: widget.colorScheme.onSurfaceVariant,
+                        )),
                 const SizedBox(height: 4),
-                Text(
-                  'Add one using the field above',
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: widget.colorScheme.onSurfaceVariant,
-                      ),
-                ),
+                Text('Add one using the field above',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: widget.colorScheme.onSurfaceVariant,
+                        )),
               ],
             ),
           )
@@ -360,7 +348,8 @@ class _OptionsTabUIState extends State<_OptionsTabUI> {
                       color: widget.colorScheme.onPrimaryContainer),
                 ),
                 title: Text(opt,
-                    style: const TextStyle(fontWeight: FontWeight.w500)),
+                    style:
+                        const TextStyle(fontWeight: FontWeight.w500)),
                 trailing: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [

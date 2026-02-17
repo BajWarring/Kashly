@@ -19,11 +19,6 @@ class CashBook {
   double get balance => totalIn - totalOut;
   bool get isPositive => balance >= 0;
 
-  String get formattedBalance {
-    final sign = isPositive ? '+' : '-';
-    return '\$sign ₹\${balance.abs().toStringAsFixed(2)}';
-  }
-
   List<String> get allCategories => [
         'General',
         'Food & Drinks',

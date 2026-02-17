@@ -5,11 +5,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 enum BackupStatus {
-  synced,      // All data safely backed up
-  syncing,     // Upload in progress
-  pending,     // Changes queued, debounce timer running
-  error,       // Last backup failed
-  never,       // First launch, no backup yet
+  synced,
+  syncing,
+  pending,
+  error,
+  never,
 }
 
 class BackupInfo {
@@ -110,53 +110,16 @@ class BackupStateProvider extends StatefulWidget {
 }
 
 class BackupStateProviderState extends State<BackupStateProvider> {
-  BackupInfo _info = BackupInfo(
-    status: BackupStatus.synced,
-    lastBackupTime: DateTime.now().subtract(const Duration(minutes: 4)),
-    lastBackupSize: '1.2 MB',
-    connectedAccount: 'user@gmail.com',
+  // Start with never — no fake backup data
+  BackupInfo _info = const BackupInfo(
+    status: BackupStatus.never,
     autoBackupEnabled: true,
-    history: [
-      BackupHistoryEntry(
-        id: 'bk5',
-        timestamp: DateTime.now().subtract(const Duration(minutes: 4)),
-        size: '1.2 MB',
-        version: 'v${DateTime.now().subtract(const Duration(minutes: 4)).millisecondsSinceEpoch}',
-        isLatest: true,
-      ),
-      BackupHistoryEntry(
-        id: 'bk4',
-        timestamp: DateTime.now().subtract(const Duration(hours: 26)),
-        size: '1.1 MB',
-        version: 'v${DateTime.now().subtract(const Duration(hours: 26)).millisecondsSinceEpoch}',
-      ),
-      BackupHistoryEntry(
-        id: 'bk3',
-        timestamp: DateTime.now().subtract(const Duration(days: 2, hours: 3)),
-        size: '1.0 MB',
-        version: 'v${DateTime.now().subtract(const Duration(days: 2)).millisecondsSinceEpoch}',
-      ),
-      BackupHistoryEntry(
-        id: 'bk2',
-        timestamp: DateTime.now().subtract(const Duration(days: 4)),
-        size: '0.9 MB',
-        version: 'v${DateTime.now().subtract(const Duration(days: 4)).millisecondsSinceEpoch}',
-      ),
-      BackupHistoryEntry(
-        id: 'bk1',
-        timestamp: DateTime.now().subtract(const Duration(days: 7)),
-        size: '0.8 MB',
-        version: 'v${DateTime.now().subtract(const Duration(days: 7)).millisecondsSinceEpoch}',
-      ),
-    ],
   );
 
   BackupInfo get info => _info;
 
-  /// Called after any data mutation — triggers pending → debounce → syncing → synced
   void notifyDataChanged() {
     _updateStatus(BackupStatus.pending);
-    // Simulate debounce + sync (20s in real impl)
     Future.delayed(const Duration(seconds: 2), () {
       if (mounted) _updateStatus(BackupStatus.syncing);
       Future.delayed(const Duration(seconds: 2), () {
@@ -195,11 +158,10 @@ class BackupStateProviderState extends State<BackupStateProvider> {
         final newEntry = BackupHistoryEntry(
           id: 'bk_${now.millisecondsSinceEpoch}',
           timestamp: now,
-          size: '${(1.2 + (history.length * 0.05)).toStringAsFixed(1)} MB',
+          size: '${(0.8 + (history.length * 0.1)).toStringAsFixed(1)} MB',
           version: 'v${now.millisecondsSinceEpoch}',
           isLatest: true,
         );
-        // Mark old entries as not latest
         history = [
           newEntry,
           ...history.map((e) => BackupHistoryEntry(
@@ -210,16 +172,14 @@ class BackupStateProviderState extends State<BackupStateProvider> {
                 isLatest: false,
               )),
         ];
-        // Keep max 5
         if (history.length > 5) history = history.take(5).toList();
       }
 
       _info = _info.copyWith(
         status: status,
         lastBackupTime: newBackupNow ? now : _info.lastBackupTime,
-        lastBackupSize: newBackupNow
-            ? history.first.size
-            : _info.lastBackupSize,
+        lastBackupSize:
+            newBackupNow ? history.first.size : _info.lastBackupSize,
         errorMessage: errorMessage,
         history: history,
       );

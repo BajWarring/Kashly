@@ -3,57 +3,38 @@
 import 'package:flutter/material.dart';
 import '../models/transaction.dart';
 import '../models/edit_log.dart';
+import '../logic/cashbook_logic.dart';
 
 class EntryDetailScreen extends StatelessWidget {
   final Transaction transaction;
+  final String cashbookId;
 
-  const EntryDetailScreen({super.key, required this.transaction});
+  const EntryDetailScreen({
+    super.key,
+    required this.transaction,
+    required this.cashbookId,
+  });
 
-  // Sample edit history — replace with real data from logic layer
-  List<EditLog> get _sampleEditLogs => [
-        EditLog(
-          id: 'log1',
-          transactionId: transaction.id,
-          editedAt: transaction.dateTime.add(const Duration(hours: 3, minutes: 17)),
-          changes: [
-            const FieldChange(fieldName: 'Amount', before: '1000.00', after: '1200.00'),
-            const FieldChange(fieldName: 'Remarks', before: 'Grocery run', after: 'Grocery shopping at Big Mart'),
-          ],
-        ),
-        EditLog(
-          id: 'log2',
-          transactionId: transaction.id,
-          editedAt: transaction.dateTime.add(const Duration(days: 1, hours: 9)),
-          changes: [
-            const FieldChange(fieldName: 'Category', before: 'General', after: 'Food & Drinks'),
-            const FieldChange(fieldName: 'Payment Method', before: 'Cash', after: 'UPI'),
-          ],
-        ),
-      ];
+  // Edit history is empty until a real edit layer is wired
+  List<EditLog> get _editLogs => [];
 
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
     final isCashIn = transaction.isCashIn;
-    final editLogs = _sampleEditLogs;
+    final editLogs = _editLogs;
 
     return Scaffold(
       backgroundColor: colorScheme.surface,
       appBar: AppBar(
         scrolledUnderElevation: 2,
-        title: const Text('Entry Details', style: TextStyle(fontWeight: FontWeight.w600)),
+        title: const Text('Entry Details',
+            style: TextStyle(fontWeight: FontWeight.w600)),
         actions: [
           IconButton(
             icon: const Icon(Icons.share_outlined),
             tooltip: 'Share',
             onPressed: () => _showShareOptions(context, editLogs),
-          ),
-          IconButton(
-            icon: const Icon(Icons.edit_outlined),
-            tooltip: 'Edit',
-            onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Edit — connect to logic layer'), behavior: SnackBarBehavior.floating),
-            ),
           ),
           IconButton(
             icon: Icon(Icons.delete_outline, color: colorScheme.error),
@@ -67,15 +48,15 @@ class EntryDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Hero amount card ────────────────────────────────────────
-            _AmountHeroCard(transaction: transaction, isCashIn: isCashIn, colorScheme: colorScheme),
+            _AmountHeroCard(
+                transaction: transaction,
+                isCashIn: isCashIn,
+                colorScheme: colorScheme),
             const SizedBox(height: 16),
-
-            // ── All details in one card ────────────────────────────────
-            _FullDetailCard(transaction: transaction, colorScheme: colorScheme),
+            _FullDetailCard(
+                transaction: transaction, colorScheme: colorScheme),
             const SizedBox(height: 24),
 
-            // ── Created line ───────────────────────────────────────────
             _SectionHeader(
               icon: Icons.add_circle_outline_rounded,
               label: 'Created',
@@ -85,13 +66,15 @@ class EntryDetailScreen extends StatelessWidget {
             _TimelineCard(
               child: Row(
                 children: [
-                  Icon(Icons.check_circle_outline, size: 16, color: colorScheme.primary),
+                  Icon(Icons.check_circle_outline,
+                      size: 16, color: colorScheme.primary),
                   const SizedBox(width: 10),
                   Text(
                     'Entry created on ${_formatFullDate(transaction.dateTime)}',
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurface,
-                        ),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodySmall
+                        ?.copyWith(color: colorScheme.onSurface),
                   ),
                 ],
               ),
@@ -99,17 +82,19 @@ class EntryDetailScreen extends StatelessWidget {
             ),
             const SizedBox(height: 20),
 
-            // ── Edit history ───────────────────────────────────────────
             _SectionHeader(
               icon: Icons.history_rounded,
               label: 'Edit History',
               color: colorScheme.tertiary,
               trailing: editLogs.isEmpty
                   ? null
-                  : Text('${editLogs.length} edit${editLogs.length == 1 ? '' : 's'}',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: colorScheme.onSurfaceVariant,
-                          )),
+                  : Text(
+                      '${editLogs.length} edit${editLogs.length == 1 ? '' : 's'}',
+                      style: Theme.of(context)
+                          .textTheme
+                          .labelSmall
+                          ?.copyWith(color: colorScheme.onSurfaceVariant),
+                    ),
             ),
             const SizedBox(height: 8),
 
@@ -117,12 +102,14 @@ class EntryDetailScreen extends StatelessWidget {
               _TimelineCard(
                 child: Row(
                   children: [
-                    Icon(Icons.info_outline, size: 16, color: colorScheme.onSurfaceVariant),
+                    Icon(Icons.info_outline,
+                        size: 16, color: colorScheme.onSurfaceVariant),
                     const SizedBox(width: 10),
                     Text('No edits made to this entry',
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                              color: colorScheme.onSurfaceVariant,
-                            )),
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: colorScheme.onSurfaceVariant)),
                   ],
                 ),
                 colorScheme: colorScheme,
@@ -154,28 +141,29 @@ class EntryDetailScreen extends StatelessWidget {
           children: [
             const SizedBox(height: 8),
             Container(
-              width: 32, height: 4,
+              width: 32,
+              height: 4,
               decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.onSurfaceVariant.withOpacity(0.3),
+                color: Theme.of(context)
+                    .colorScheme
+                    .onSurfaceVariant
+                    .withValues(alpha: 0.3),
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
               child: Text('Share Entry',
-                  style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.w600)),
+                  style: Theme.of(context)
+                      .textTheme
+                      .titleLarge
+                      ?.copyWith(fontWeight: FontWeight.w600)),
             ),
             ListTile(
               leading: const Icon(Icons.share_outlined),
               title: const Text('Share entry (without edit logs)'),
               subtitle: const Text('Default — clean summary only'),
-              onTap: () { Navigator.pop(context); },
-            ),
-            ListTile(
-              leading: const Icon(Icons.history_rounded),
-              title: const Text('Share entry with edit logs'),
-              subtitle: Text('Includes ${logs.length} edit record${logs.length == 1 ? '' : 's'}'),
-              onTap: () { Navigator.pop(context); },
+              onTap: () => Navigator.pop(context),
             ),
             const SizedBox(height: 8),
           ],
@@ -191,12 +179,22 @@ class EntryDetailScreen extends StatelessWidget {
         icon: Icon(Icons.delete_forever_rounded,
             color: Theme.of(context).colorScheme.error, size: 32),
         title: const Text('Delete Entry?'),
-        content: const Text('This transaction will be permanently removed.'),
+        content: const Text(
+            'This transaction will be permanently removed.'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           FilledButton(
-            style: FilledButton.styleFrom(backgroundColor: Theme.of(context).colorScheme.error),
-            onPressed: () { Navigator.pop(context); Navigator.pop(context); },
+            style: FilledButton.styleFrom(
+                backgroundColor:
+                    Theme.of(context).colorScheme.error),
+            onPressed: () async {
+              Navigator.pop(context);
+              await CashbookLogic.deleteTransaction(
+                  transaction.id, cashbookId);
+              if (context.mounted) Navigator.pop(context);
+            },
             child: const Text('Delete'),
           ),
         ],
@@ -205,23 +203,29 @@ class EntryDetailScreen extends StatelessWidget {
   }
 
   String _formatFullDate(DateTime dt) {
-    const months = ['January','February','March','April','May','June',
-        'July','August','September','October','November','December'];
-    final hour = dt.hour == 0 ? 12 : (dt.hour > 12 ? dt.hour - 12 : dt.hour);
+    const months = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    final hour =
+        dt.hour == 0 ? 12 : (dt.hour > 12 ? dt.hour - 12 : dt.hour);
     final min = dt.minute.toString().padLeft(2, '0');
     final period = dt.hour >= 12 ? 'PM' : 'AM';
     return '${dt.day} ${months[dt.month - 1]} ${dt.year}, $hour:$min $period';
   }
 }
 
-// ── Amount hero card ───────────────────────────────────────────────────────
+// ── Amount hero card ────────────────────────────────────────────────────────
 
 class _AmountHeroCard extends StatelessWidget {
   final Transaction transaction;
   final bool isCashIn;
   final ColorScheme colorScheme;
 
-  const _AmountHeroCard({required this.transaction, required this.isCashIn, required this.colorScheme});
+  const _AmountHeroCard(
+      {required this.transaction,
+      required this.isCashIn,
+      required this.colorScheme});
 
   @override
   Widget build(BuildContext context) {
@@ -232,14 +236,15 @@ class _AmountHeroCard extends StatelessWidget {
         gradient: LinearGradient(
           colors: isCashIn
               ? [const Color(0xFF0E6027), const Color(0xFF1B8A3A)]
-              : [colorScheme.error.withOpacity(0.85), colorScheme.error],
+              : [colorScheme.error.withValues(alpha: 0.85), colorScheme.error],
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
         boxShadow: [
           BoxShadow(
-            color: (isCashIn ? const Color(0xFF1B8A3A) : colorScheme.error).withOpacity(0.3),
+            color: (isCashIn ? const Color(0xFF1B8A3A) : colorScheme.error)
+                .withValues(alpha: 0.3),
             blurRadius: 20,
             offset: const Offset(0, 8),
           ),
@@ -250,20 +255,26 @@ class _AmountHeroCard extends StatelessWidget {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.18),
+              color: Colors.white.withValues(alpha: 0.18),
               borderRadius: BorderRadius.circular(20),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(
-                  isCashIn ? Icons.arrow_downward_rounded : Icons.arrow_upward_rounded,
-                  color: Colors.white, size: 15,
+                  isCashIn
+                      ? Icons.arrow_downward_rounded
+                      : Icons.arrow_upward_rounded,
+                  color: Colors.white,
+                  size: 15,
                 ),
                 const SizedBox(width: 6),
                 Text(
                   isCashIn ? 'Cash In' : 'Cash Out',
-                  style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 13),
+                  style: const TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13),
                 ),
               ],
             ),
@@ -281,7 +292,8 @@ class _AmountHeroCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             _formatFullDate(transaction.dateTime),
-            style: TextStyle(color: Colors.white.withOpacity(0.82), fontSize: 13),
+            style:
+                TextStyle(color: Colors.white.withValues(alpha: 0.82), fontSize: 13),
           ),
         ],
       ),
@@ -289,7 +301,7 @@ class _AmountHeroCard extends StatelessWidget {
   }
 
   String _formatFullDate(DateTime dt) {
-    const days = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     final hour = dt.hour == 0 ? 12 : (dt.hour > 12 ? dt.hour - 12 : dt.hour);
     final min = dt.minute.toString().padLeft(2, '0');
@@ -298,13 +310,14 @@ class _AmountHeroCard extends StatelessWidget {
   }
 }
 
-// ── Full detail card ────────────────────────────────────────────────────────
+// ── Full detail card ─────────────────────────────────────────────────────────
 
 class _FullDetailCard extends StatelessWidget {
   final Transaction transaction;
   final ColorScheme colorScheme;
 
-  const _FullDetailCard({required this.transaction, required this.colorScheme});
+  const _FullDetailCard(
+      {required this.transaction, required this.colorScheme});
 
   @override
   Widget build(BuildContext context) {
@@ -344,7 +357,7 @@ class _FullDetailCard extends StatelessWidget {
                     Container(
                       padding: const EdgeInsets.all(7),
                       decoration: BoxDecoration(
-                        color: colorScheme.primaryContainer.withOpacity(0.6),
+                        color: colorScheme.primaryContainer.withValues(alpha: 0.6),
                         borderRadius: BorderRadius.circular(9),
                       ),
                       child: Icon(e.value.icon, size: 16, color: colorScheme.primary),
@@ -365,13 +378,17 @@ class _FullDetailCard extends StatelessWidget {
                               fontFamily: e.value.isMono ? 'monospace' : null,
                             ),
                         maxLines: e.value.isMultiline ? null : 1,
-                        overflow: e.value.isMultiline ? TextOverflow.visible : TextOverflow.ellipsis,
+                        overflow: e.value.isMultiline
+                            ? TextOverflow.visible
+                            : TextOverflow.ellipsis,
                       ),
                     ),
                   ],
                 ),
               ),
-              if (!isLast) Divider(height: 1, indent: 18, endIndent: 18, color: colorScheme.outlineVariant.withOpacity(0.6)),
+              if (!isLast)
+                Divider(height: 1, indent: 18, endIndent: 18,
+                    color: colorScheme.outlineVariant.withValues(alpha: 0.6)),
             ],
           );
         }).toList(),
@@ -397,10 +414,15 @@ class _DetailRow {
   final String value;
   final bool isMultiline;
   final bool isMono;
-  const _DetailRow({required this.icon, required this.label, required this.value, this.isMultiline = false, this.isMono = false});
+  const _DetailRow(
+      {required this.icon,
+      required this.label,
+      required this.value,
+      this.isMultiline = false,
+      this.isMono = false});
 }
 
-// ── Section header ─────────────────────────────────────────────────────────
+// ── Section header ────────────────────────────────────────────────────────────
 
 class _SectionHeader extends StatelessWidget {
   final IconData icon;
@@ -408,7 +430,11 @@ class _SectionHeader extends StatelessWidget {
   final Color color;
   final Widget? trailing;
 
-  const _SectionHeader({required this.icon, required this.label, required this.color, this.trailing});
+  const _SectionHeader(
+      {required this.icon,
+      required this.label,
+      required this.color,
+      this.trailing});
 
   @override
   Widget build(BuildContext context) {
@@ -427,7 +453,7 @@ class _SectionHeader extends StatelessWidget {
   }
 }
 
-// ── Timeline card wrapper ─────────────────────────────────────────────────
+// ── Timeline card ─────────────────────────────────────────────────────────────
 
 class _TimelineCard extends StatelessWidget {
   final Widget child;
@@ -443,14 +469,15 @@ class _TimelineCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.5)),
+        border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: child,
     );
   }
 }
 
-// ── Edit log tile ─────────────────────────────────────────────────────────
+// ── Edit log tile ─────────────────────────────────────────────────────────────
 
 class _EditLogTile extends StatelessWidget {
   final EditLog log;
@@ -475,13 +502,12 @@ class _EditLogTile extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           side: BorderSide(color: colorScheme.tertiaryContainer),
         ),
-        color: colorScheme.tertiaryContainer.withOpacity(0.3),
+        color: colorScheme.tertiaryContainer.withValues(alpha: 0.3),
         child: Padding(
           padding: const EdgeInsets.all(14),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Header: edit number + timestamp
               Row(
                 children: [
                   Container(
@@ -500,20 +526,17 @@ class _EditLogTile extends StatelessWidget {
                   const Spacer(),
                   Icon(Icons.history_rounded, size: 13, color: colorScheme.onSurfaceVariant),
                   const SizedBox(width: 4),
-                  Text(
-                    _formatEditDate(log.editedAt),
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                  ),
+                  Text(_formatEditDate(log.editedAt),
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                            color: colorScheme.onSurfaceVariant,
+                          )),
                 ],
               ),
               const SizedBox(height: 10),
-
-              // Field changes
               ...log.changes.map((change) => Padding(
                     padding: const EdgeInsets.only(bottom: 8),
-                    child: _FieldChangeTile(change: change, colorScheme: colorScheme),
+                    child: _FieldChangeTile(
+                        change: change, colorScheme: colorScheme),
                   )),
             ],
           ),
@@ -534,7 +557,8 @@ class _FieldChangeTile extends StatelessWidget {
   final FieldChange change;
   final ColorScheme colorScheme;
 
-  const _FieldChangeTile({required this.change, required this.colorScheme});
+  const _FieldChangeTile(
+      {required this.change, required this.colorScheme});
 
   @override
   Widget build(BuildContext context) {
@@ -543,7 +567,8 @@ class _FieldChangeTile extends StatelessWidget {
       decoration: BoxDecoration(
         color: colorScheme.surface,
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: colorScheme.outlineVariant.withOpacity(0.5)),
+        border: Border.all(
+            color: colorScheme.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -560,12 +585,15 @@ class _FieldChangeTile extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Before', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                    Text('Before',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            )),
                     const SizedBox(height: 2),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: colorScheme.errorContainer.withOpacity(0.4),
+                        color: colorScheme.errorContainer.withValues(alpha: 0.4),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(change.before,
@@ -579,18 +607,22 @@ class _FieldChangeTile extends StatelessWidget {
               ),
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8),
-                child: Icon(Icons.arrow_forward_rounded, size: 16, color: colorScheme.onSurfaceVariant),
+                child: Icon(Icons.arrow_forward_rounded,
+                    size: 16, color: colorScheme.onSurfaceVariant),
               ),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('After', style: Theme.of(context).textTheme.labelSmall?.copyWith(color: colorScheme.onSurfaceVariant)),
+                    Text('After',
+                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                              color: colorScheme.onSurfaceVariant,
+                            )),
                     const SizedBox(height: 2),
                     Container(
                       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                       decoration: BoxDecoration(
-                        color: const Color(0xFF1B8A3A).withOpacity(0.1),
+                        color: const Color(0xFF1B8A3A).withValues(alpha: 0.1),
                         borderRadius: BorderRadius.circular(6),
                       ),
                       child: Text(change.after,

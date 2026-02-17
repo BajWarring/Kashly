@@ -10,12 +10,18 @@ enum PaymentMethod {
 
   String get label {
     switch (this) {
-      case PaymentMethod.cash: return 'Cash';
-      case PaymentMethod.bankTransfer: return 'Bank Transfer';
-      case PaymentMethod.upi: return 'UPI';
-      case PaymentMethod.card: return 'Card';
-      case PaymentMethod.cheque: return 'Cheque';
-      case PaymentMethod.other: return 'Other';
+      case PaymentMethod.cash:
+        return 'Cash';
+      case PaymentMethod.bankTransfer:
+        return 'Bank Transfer';
+      case PaymentMethod.upi:
+        return 'UPI';
+      case PaymentMethod.card:
+        return 'Card';
+      case PaymentMethod.cheque:
+        return 'Cheque';
+      case PaymentMethod.other:
+        return 'Other';
     }
   }
 }
