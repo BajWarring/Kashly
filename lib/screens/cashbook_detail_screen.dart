@@ -1,5 +1,6 @@
 // UI ONLY — Logic lives in lib/logic/cashbook_logic.dart
 
+import 'dart:collection';
 import 'package:flutter/material.dart';
 import '../models/cashbook.dart';
 import '../models/transaction.dart';
