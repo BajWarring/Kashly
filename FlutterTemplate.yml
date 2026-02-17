@@ -1,0 +1,43 @@
+name: 1. Setup Flutter App
+on:
+  workflow_dispatch: # Manual trigger only
+
+permissions:
+  contents: write
+
+jobs:
+  init-project:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.38.0'
+          channel: 'stable'
+
+      - name: Create Flutter App
+        run: |
+          # Dart project name must be snake_case
+          flutter create --org com.kashly --project-name app .
+          
+          # Remove default test file
+          rm -rf test/widget_test.dart
+
+      - name: Configure App Name (Kashly)
+        run: |
+          # Set Android app label
+          sed -i 's/android:label="kashly"/android:label="Kashly"/g' android/app/src/main/AndroidManifest.xml
+          
+          # Update pubspec description
+          sed -i 's/description: A new Flutter project./description: Kashly -  Cashbook App/g' pubspec.yaml
+
+      - name: Commit and Push Changes
+        run: |
+          git config --global user.name "GitHub Action"
+          git config --global user.email "action@github.com"
+          git add .
+          git commit -m "Initialize FlowCTRL (com.kashly.app)"
+          git push
