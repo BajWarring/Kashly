@@ -1,0 +1,35 @@
+name: Unzip lib.zip and remove source
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  unzip-lib:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Unzip lib.zip in same directory
+        run: |
+          if [ -f "lib.zip" ]; then
+            unzip -o lib.zip
+          else
+            echo "lib.zip not found"
+            exit 1
+          fi
+
+      - name: Remove lib.zip
+        run: rm lib.zip
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions"
+          git config user.email "github-actions@github.com"
+          git add .
+          git commit -m "Unzipped lib.zip and removed source" || echo "No changes to commit"
+          git push
