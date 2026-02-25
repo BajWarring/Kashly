@@ -1,4 +1,4 @@
-import 'package:flutter_sqlcipher/sqlcipher.dart';
+import 'package:sqflite/sqflite.dart'; // Changed to standard sqflite
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:kashly/domain/entities/cashbook.dart';
@@ -15,7 +15,7 @@ class LocalDatasource {
     if (_db != null) return _db!;
     final dir = await getApplicationDocumentsDirectory();
     final path = join(dir.path, dbName);
-    _db = await openDatabase(path, password: password, version: 1, onCreate: _createDb);
+    _db = await openDatabase(path, password: password, version: 1, onCreate: _createDb); // Works with sqlcipher_flutter_libs
     return _db!;
   }
 
