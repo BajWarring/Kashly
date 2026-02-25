@@ -44,10 +44,9 @@ jobs:
       - name: Extract SHA fingerprints
         run: |
           keytool -list -v \
-            -keystore android/app/release.keystore \
+            -keystore android/app/kashly-release.keystore \
             -alias ${{ secrets.KEY_ALIAS }} \
-            -storepass ${{ secrets.KEYSTORE_PASSWORD }} \
-            -keypass ${{ secrets.KEY_PASSWORD }} > fingerprint.txt
+            -storepass ${{ secrets.KEYSTORE_PASSWORD }} > fingerprint.txt
 
           SHA1=$(grep "SHA1:" fingerprint.txt | head -n1 | sed 's/.*SHA1: //')
           SHA256=$(grep "SHA256:" fingerprint.txt | head -n1 | sed 's/.*SHA256: //')
@@ -57,7 +56,7 @@ jobs:
           echo "**SHA-1**  \`$SHA1\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**SHA-256**  \`$SHA256\`" >> $GITHUB_STEP_SUMMARY
-
+          
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
