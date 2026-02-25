@@ -1,6 +1,7 @@
 import 'package:kashly/domain/repositories/cashbook_repository.dart';
 import 'package:kashly/data/datasources/local_datasource.dart';
 import 'package:kashly/domain/entities/cashbook.dart';
+import 'package:kashly/core/error/exceptions.dart'; // Integrated exceptions
 
 class CashbookRepositoryImpl implements CashbookRepository {
   final LocalDatasource localDatasource;
@@ -9,13 +10,21 @@ class CashbookRepositoryImpl implements CashbookRepository {
 
   @override
   Future<void> createCashbook(Cashbook cashbook) async {
-    await localDatasource.insertCashbook(cashbook);
+    try {
+      await localDatasource.insertCashbook(cashbook);
+    } catch (e) {
+      throw CacheException('Failed to insert cashbook: $e'); // Use CacheException for DB errors
+    }
   }
 
   @override
   Future<List<Cashbook>> getCashbooks() async {
-    return await localDatasource.getCashbooks();
+    try {
+      return await localDatasource.getCashbooks();
+    } catch (e) {
+      throw CacheException('Failed to fetch cashbooks: $e');
+    }
   }
 
-  // Add edit, delete, etc.
+  // Add edit, delete, etc. with similar try-catch
 }
