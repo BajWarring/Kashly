@@ -8,16 +8,23 @@ import 'package:path_provider/path_provider.dart';
 import 'package:workmanager/workmanager.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'dart:io';
+import 'dart:math';
+import 'package:kashly/ux_and_ui_elements/dialogs.dart'; // Integrated dialogs
+import 'package:kashly/core/error/exceptions.dart'; // Integrated exceptions
+import 'package:flutter/material.dart'; // For context in dialogs (pass from caller if needed)
 
 class BackupService {
   final LocalDatasource localDatasource = LocalDatasource(); // Inject
 
   Future<void> performScheduledBackup() async {
-    // Check settings, network, battery
-    if (await _checkConditions()) {
-      await fullDbBackup();
-      await pruneOldBackups();
-      // Notify success/failure
+    try {
+      if (await _checkConditions()) {
+        await fullDbBackup();
+        await pruneOldBackups();
+        // Notify success/failure
+      }
+    } catch (e) {
+      throw BackupException('Scheduled backup failed: $e');
     }
   }
 
@@ -26,39 +33,53 @@ class BackupService {
     return true;
   }
 
-  Future<void> manualBackup() async {
-    // Confirmation dialog
-    await incrementalBackup();
+  Future<void> manualBackup([BuildContext? context]) async {
+    try {
+      if (context != null && await showBackupNowConfirmation(context) != true) {
+        return; // Canceled
+      }
+      await incrementalBackup();
+    } catch (e) {
+      throw BackupException('Manual backup failed: $e');
+    }
   }
 
   Future<void> incrementalBackup() async {
-    final nonUploaded = await localDatasource.getNonUploadedTransactions();
-    for (var tx in nonUploaded) {
-      await _uploadToDrive(tx);
-      // Update meta
+    try {
+      final nonUploaded = await localDatasource.getNonUploadedTransactions();
+      for (var tx in nonUploaded) {
+        await _uploadToDrive(tx);
+        // Update meta
+      }
+    } catch (e) {
+      throw SyncException('Incremental sync failed: $e');
     }
   }
 
   Future<void> fullDbBackup() async {
-    final dir = await getApplicationDocumentsDirectory();
-    final backupFile = File('${dir.path}/kashly_backup.sql');
-    // Dump DB to file (use sqflite export)
-    // Encrypt if enabled
-    final encrypted = _encryptFile(backupFile);
-    final checksum = calculateMd5(encrypted);
-    await _uploadToDriveFile(encrypted, checksum);
-    // Create backup record
-    final record = BackupRecord(
-      id: 'uuid',
-      type: BackupType.google_drive,
-      cashbookIds: [],
-      transactionCount: 0,
-      fileName: 'backup.sql',
-      fileSizeBytes: encrypted.lengthSync(),
-      createdAt: DateTime.now(),
-      status: BackupStatus.success,
-    );
-    // Insert record
+    try {
+      final dir = await getApplicationDocumentsDirectory();
+      final backupFile = File('${dir.path}/kashly_backup.sql');
+      // Dump DB to file (use sqflite export)
+      // Encrypt if enabled
+      final encrypted = _encryptFile(backupFile);
+      final checksum = calculateMd5(encrypted);
+      await _uploadToDriveFile(encrypted, checksum);
+      // Create backup record
+      final record = BackupRecord(
+        id: 'uuid',
+        type: BackupType.google_drive,
+        cashbookIds: [],
+        transactionCount: 0,
+        fileName: 'backup.sql',
+        fileSizeBytes: encrypted.lengthSync(),
+        createdAt: DateTime.now(),
+        status: BackupStatus.success,
+      );
+      // Insert record
+    } catch (e) {
+      throw BackupException('Full backup failed: $e');
+    }
   }
 
   File _encryptFile(File file) {
@@ -67,17 +88,21 @@ class BackupService {
   }
 
   Future<void> _uploadToDriveFile(File file, String checksum) async {
-    final ref = ProviderContainer();
-    final headers = await ref.read(authProvider.notifier).getHeaders();
-    final client = http.Client();
-    final api = drive.DriveApi(client);
-    final media = drive.Media(file.openRead(), file.lengthSync());
-    final driveFile = drive.File()
-      ..name = file.path.split('/').last
-      ..mimeType = 'application/sql'
-      ..md5Checksum = checksum;
-    await api.files.create(driveFile, uploadMedia: media);
-    // Versioning if enabled
+    try {
+      final ref = ProviderContainer();
+      final headers = await ref.read(authProvider.notifier).getHeaders();
+      final client = http.Client();
+      final api = drive.DriveApi(client);
+      final media = drive.Media(file.openRead(), file.lengthSync());
+      final driveFile = drive.File()
+        ..name = file.path.split('/').last
+        ..mimeType = 'application/sql'
+        ..md5Checksum = checksum;
+      await api.files.create(driveFile, uploadMedia: media);
+      // Versioning if enabled
+    } catch (e) {
+      throw NetworkException('Drive upload failed: $e');
+    }
   }
 
   Future<void> _uploadToDrive(Transaction tx) async {
@@ -85,8 +110,16 @@ class BackupService {
     // Update drive_meta
   }
 
-  Future<void> restoreFromBackup(BackupRecord record) async {
-    // Download, decrypt, preview, integrity check, swap DB
+  Future<void> restoreFromBackup(BackupRecord record, BuildContext context) async {
+    try {
+      final password = await showEncryptionPasswordPrompt(context);
+      if (password == null) return;
+      // Download, decrypt with password, preview
+      await showRestorePreviewModal(context, 'Preview: sample data');
+      // Integrity check, swap DB
+    } catch (e) {
+      throw BackupException('Restore failed: $e');
+    }
   }
 
   Future<void> pruneOldBackups() async {
