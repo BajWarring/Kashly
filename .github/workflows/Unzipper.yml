@@ -21,15 +21,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Verify token exists
-        run: |
-          if [ -z "${{ secrets.ACCESS_TOKEN }}" ]; then
-            echo "ACCESS_TOKEN secret is missing"
-            exit 1
-          else
-            echo "Token detected"
-          fi
-
+      
       - name: Validate zip file exists
         run: |
           if [ ! -f "${{ github.event.inputs.zip_path }}" ]; then
