@@ -1,12 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kashly/domain/entities/backup_settings.dart';
+import 'package:kashly/reports/backup_report.dart'; // Integrated reports
+import 'package:kashly/domain/entities/backup_record.dart'; // Assume fetch
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final backups = <BackupRecord>[]; // Assume fetched
+
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
       body: ListView(
@@ -42,6 +46,17 @@ class SettingsScreen extends StatelessWidget {
               // ... Add all options as switches/buttons
               ElevatedButton(onPressed: () {}, child: const Text('Manual Backup Now')),
               ElevatedButton(onPressed: () {}, child: const Text('Manual Restore')),
+              // Integrated reports
+              ElevatedButton(onPressed: () async {
+                await generateBackupReportPdf(backups);
+                // Show success snackbar
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('PDF Generated')));
+              }, child: const Text('Generate Backup PDF')),
+              ElevatedButton(onPressed: () async {
+                await exportBackupManifest(backups);
+                // Show success
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('CSV Exported')));
+              }, child: const Text('Export Backup Manifest')),
             ],
           ),
           ListTile(title: const Text('Appearance')),
