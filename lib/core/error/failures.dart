@@ -27,3 +27,11 @@ class BackupFailure extends Failure {
 class SyncFailure extends Failure {
   const SyncFailure(super.message);
 }
+
+class AuthFailure extends Failure {
+  const AuthFailure(super.message);
+}
+
+class ValidationFailure extends Failure {
+  const ValidationFailure(super.message);
+}

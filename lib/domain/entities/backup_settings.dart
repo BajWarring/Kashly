@@ -8,25 +8,31 @@ enum AutoBackupInterval { daily, weekly, monthly, custom }
 @freezed
 class AppBackupSettings with _$AppBackupSettings {
   const factory AppBackupSettings({
-    required bool autoBackupEnabled,
-    required AutoBackupInterval autoBackupInterval,
+    @Default(false) bool autoBackupEnabled,
+    @Default(AutoBackupInterval.daily) AutoBackupInterval autoBackupInterval,
     String? autoBackupTime,
-    required int maxLocalBackups,
+    @Default(5) int maxLocalBackups,
     String? localBackupPath,
-    required bool driveBackupEnabled,
-    required bool driveAutoVersioning,
+    @Default(false) bool driveBackupEnabled,
+    @Default(true) bool driveAutoVersioning,
     String? driveBackupFolderId,
-    required bool includeAttachmentsInDrive,
-    required bool uploadOnMeteredNetwork,
-    required bool onlyOnUnmeteredNetwork,
-    required bool backupOverRoaming,
-    required bool backupOnlyWhenCharging,
+    @Default(false) bool includeAttachmentsInDrive,
+    @Default(true) bool uploadOnMeteredNetwork,
+    @Default(false) bool onlyOnUnmeteredNetwork,
+    @Default(false) bool backupOverRoaming,
+    @Default(false) bool backupOnlyWhenCharging,
     int? bandwidthLimitKbps,
-    required bool encryptionEnabled,
+    @Default(false) bool encryptionEnabled,
     String? encryptionPasswordHint,
-    required bool promptBeforeOverwrite,
-    required bool incrementalBackup,
+    @Default(true) bool promptBeforeOverwrite,
+    @Default(true) bool incrementalBackup,
+    @Default(false) bool requireBiometricToRestore,
+    @Default(true) bool notifyOnSuccess,
+    @Default(true) bool notifyOnFailure,
+    String? doNotDisturbStart,
+    String? doNotDisturbEnd,
   }) = _AppBackupSettings;
 
-  factory AppBackupSettings.fromJson(Map<String, Object?> json) => _$AppBackupSettingsFromJson(json);
+  factory AppBackupSettings.fromJson(Map<String, Object?> json) =>
+      _$AppBackupSettingsFromJson(json);
 }

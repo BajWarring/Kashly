@@ -5,41 +5,76 @@ import 'package:googleapis/drive/v3.dart' as drive;
 class AuthState {
   final GoogleSignInAccount? user;
   final bool isAuthenticated;
+  final bool isLoading;
+  final String? error;
 
-  AuthState({this.user, this.isAuthenticated = false});
+  const AuthState({
+    this.user,
+    this.isAuthenticated = false,
+    this.isLoading = false,
+    this.error,
+  });
+
+  AuthState copyWith({
+    GoogleSignInAccount? user,
+    bool? isAuthenticated,
+    bool? isLoading,
+    String? error,
+  }) =>
+      AuthState(
+        user: user ?? this.user,
+        isAuthenticated: isAuthenticated ?? this.isAuthenticated,
+        isLoading: isLoading ?? this.isLoading,
+        error: error,
+      );
 }
 
 class AuthNotifier extends StateNotifier<AuthState> {
-  AuthNotifier() : super(AuthState());
+  AuthNotifier() : super(const AuthState()) {
+    _init();
+  }
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     clientId: '928192611170-em5ubrl4beokniveah3cnf17leq36eo1.apps.googleusercontent.com',
-    scopes: [drive.DriveApi.driveScope], // For Drive access
+    scopes: [drive.DriveApi.driveScope, drive.DriveApi.driveFileScope],
   );
 
+  Future<void> _init() async {
+    try {
+      final account = await _googleSignIn.signInSilently();
+      if (account != null) {
+        state = AuthState(user: account, isAuthenticated: true);
+      }
+    } catch (_) {}
+  }
+
   Future<void> signIn() async {
+    state = state.copyWith(isLoading: true);
     try {
       final account = await _googleSignIn.signIn();
       if (account != null) {
         state = AuthState(user: account, isAuthenticated: true);
+      } else {
+        state = AuthState(error: 'Sign-in cancelled');
       }
     } catch (e) {
-      // Handle error
+      state = AuthState(error: 'Sign-in failed: $e');
     }
   }
 
   Future<void> signOut() async {
     await _googleSignIn.signOut();
-    state = AuthState();
+    state = const AuthState();
   }
 
   Future<void> switchAccount() async {
-    await signOut();
-    await signIn(); // Allows selecting different account
+    await _googleSignIn.disconnect();
+    state = const AuthState();
+    await signIn();
   }
 
-  // Get auth headers for Drive API
-  Future<Map<String, String>> getHeaders() async {
-    return await state.user?.authHeaders ?? {};
+  Future<Map<String, String>> getAuthHeaders() async {
+    if (state.user == null) return {};
+    return await state.user!.authHeaders;
   }
 }
