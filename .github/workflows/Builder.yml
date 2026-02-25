@@ -1,4 +1,5 @@
 name: 2. Build APK
+
 on:
   workflow_dispatch:
 
@@ -22,12 +23,10 @@ jobs:
         with:
           flutter-version: '3.38.0'
 
-      # Decode keystore from secret
       - name: Decode Keystore
         run: |
           echo "${{ secrets.KEYSTORE_BASE64 }}" | base64 --decode > android/app/release.keystore
 
-      # Create key.properties file dynamically
       - name: Create key.properties
         run: |
           echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
@@ -38,8 +37,26 @@ jobs:
       - name: Get Dependencies
         run: flutter pub get
 
-      - name: Build APK (Release Signed)
+      - name: Build APK
         run: flutter build apk --release
+
+      # 🔬 Fingerprint extraction
+      - name: Extract SHA fingerprints
+        run: |
+          keytool -list -v \
+            -keystore android/app/release.keystore \
+            -alias ${{ secrets.KEY_ALIAS }} \
+            -storepass ${{ secrets.KEYSTORE_PASSWORD }} \
+            -keypass ${{ secrets.KEY_PASSWORD }} > fingerprint.txt
+
+          SHA1=$(grep "SHA1:" fingerprint.txt | head -n1 | sed 's/.*SHA1: //')
+          SHA256=$(grep "SHA256:" fingerprint.txt | head -n1 | sed 's/.*SHA256: //')
+
+          echo "## 🔐 Signing Certificate Fingerprints" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**SHA-1**  \`$SHA1\`" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**SHA-256**  \`$SHA256\`" >> $GITHUB_STEP_SUMMARY
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
