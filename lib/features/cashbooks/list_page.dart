@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:kashly/domain/entities/cashbook.dart';
 import 'package:kashly/core/di/providers.dart';
 import 'package:go_router/go_router.dart';
+import 'package:kashly/core/utils/icons.dart'; // Integrated icons
 
 class CashbooksListPage extends ConsumerWidget {
   const CashbooksListPage({super.key});
@@ -49,7 +50,7 @@ class CashbooksListPage extends ConsumerWidget {
                   child: ListTile(
                     title: Text(cb.name),
                     subtitle: Text('Balance: ${cb.openingBalance} ${cb.currency}\nLast Updated: ${cb.updatedAt}'),
-                    trailing: Icon(_getSyncIcon(cb.syncStatus)),
+                    trailing: getSyncStatusIcon(cb.syncStatus.name), // Use integrated icon
                     onTap: () => context.go('/cashbooks/${cb.id}'),
                   ),
                 );
@@ -66,18 +67,5 @@ class CashbooksListPage extends ConsumerWidget {
       ),
       // Actions: edit, archive, delete, backup_now in menu
     );
-  }
-
-  Icon _getSyncIcon(SyncStatus status) {
-    switch (status) {
-      case SyncStatus.synced:
-        return const Icon(Icons.check_circle);
-      case SyncStatus.pending:
-        return const Icon(Icons.cloud_upload);
-      case SyncStatus.error:
-        return const Icon(Icons.cloud_off);
-      case SyncStatus.conflict:
-        return const Icon(Icons.warning);
-    }
   }
 }
