@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:kashly/domain/entities/transaction.dart';
 import 'package:kashly/domain/entities/transaction_history.dart';
+import 'package:kashly/core/utils/icons.dart'; // Integrated icons
 
 class TransactionDetailPage extends StatelessWidget {
   final String id;
@@ -17,8 +18,19 @@ class TransactionDetailPage extends StatelessWidget {
         children: [
           Text('Amount: ${transaction.amount}'),
           // Other fields
-          Text('Sync Status: ${transaction.syncStatus}'),
+          Row(
+            children: [
+              const Text('Sync Status: '),
+              getSyncStatusIcon(transaction.syncStatus.name), // Use integrated icon
+            ],
+          ),
           // Show drive sync status
+          Row(
+            children: [
+              const Text('Drive Status: '),
+              getDriveFileIcon('drive_ok'), // Example usage
+            ],
+          ),
           // Edit history
           ExpansionTile(
             title: const Text('Edit History'),
