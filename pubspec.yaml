@@ -31,7 +31,7 @@ dependencies:
   shared_preferences: ^2.3.0
   file_picker: ^8.1.2
   fl_chart: ^0.70.0
-  biometric_storage: ^0.1.0 # For biometric lock
+  biometric_storage: ^5.0.1 # For biometric lock
   csv: ^5.1.0 # For exports
   pdf: ^3.10.8 # For reports
 
