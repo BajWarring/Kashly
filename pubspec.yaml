@@ -10,29 +10,19 @@ dependencies:
   flutter:
     sdk: flutter
   cupertino_icons: ^1.0.8
-
-  # Architecture & State
   flutter_riverpod: ^2.5.1
   riverpod_annotation: ^2.3.5
   freezed_annotation: ^2.4.4
   json_annotation: ^4.9.0
-
-  # Navigation
   go_router: ^14.2.7
-
-  # Database - SQLite (encrypted with SQLCipher)
   sqflite: ^2.3.3
   path: ^1.9.0
   path_provider: ^2.1.4
-  flutter_sqlcipher: ^0.1.0   # Full AES-256 encryption
-
-  # Google Auth + Drive API
+  flutter_sqlcipher: ^0.1.0
   google_sign_in: ^6.2.1
   googleapis: ^13.2.0
   googleapis_auth: ^1.6.0
   http: ^1.2.2
-
-  # Background tasks & Utils
   workmanager: ^0.5.2
   uuid: ^4.4.2
   intl: ^0.19.0
@@ -40,9 +30,10 @@ dependencies:
   encrypt: ^5.0.3
   shared_preferences: ^2.3.0
   file_picker: ^8.1.2
-
-  # UI & Charts (professional features)
   fl_chart: ^0.70.0
+  biometric_storage: ^0.1.0 # For biometric lock
+  csv: ^5.1.0 # For exports
+  pdf: ^3.10.8 # For reports
 
 dev_dependencies:
   flutter_test:
