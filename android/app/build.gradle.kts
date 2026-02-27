@@ -1,10 +1,12 @@
+import java.util.Properties                          // ✅ Fix 1: explicit import, not java.util.Properties()
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-val localProperties = java.util.Properties()
+val localProperties = Properties()
 val localPropertiesFile = rootProject.file("local.properties")
 if (localPropertiesFile.exists()) {
     localPropertiesFile.inputStream().use { localProperties.load(it) }
@@ -19,14 +21,20 @@ android {
     ndkVersion = flutter.ndkVersion
 
     compileOptions {
-        // ✅ Required by flutter_local_notifications (java.time APIs on older Android)
-        isCoreLibraryDesugaringEnabled = true
-        sourceCompatibility = JavaVersion.VERSION_1_8
-        targetCompatibility = JavaVersion.VERSION_1_8
+        isCoreLibraryDesugaringEnabled = true          // ✅ flutter_local_notifications desugaring
+        sourceCompatibility = JavaVersion.VERSION_11   // ✅ 1.8 → 11 (AGP 8+ recommendation)
+        targetCompatibility = JavaVersion.VERSION_11
     }
 
     kotlinOptions {
-        jvmTarget = "1.8"
+        // ✅ Fix 2: compilerOptions DSL replaces deprecated jvmTarget string assignment
+        freeCompilerArgs += listOf("-Xjvm-default=all")
+    }
+
+    kotlin {
+        compilerOptions {
+            jvmTarget.set(org.jetbrains.kotlin.gradle.dsl.JvmTarget.JVM_11)  // ✅ new DSL
+        }
     }
 
     defaultConfig {
@@ -56,9 +64,7 @@ flutter {
 }
 
 dependencies {
-    // ✅ Desugaring library — required when isCoreLibraryDesugaringEnabled = true
-    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")
-
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.0.4")  // ✅ desugaring
     implementation("org.jetbrains.kotlin:kotlin-stdlib-jdk8")
     implementation("androidx.multidex:multidex:2.0.1")
 }
