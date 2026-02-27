@@ -192,7 +192,7 @@ class _TransactionEntryFormState
 
             // Category dropdown
             DropdownButtonFormField<String>(
-              value: _category,
+              initialValue: _category,
               decoration: const InputDecoration(
                 labelText: 'Category',
                 prefixIcon: Icon(Icons.category_outlined),
@@ -219,7 +219,7 @@ class _TransactionEntryFormState
 
             // Method
             DropdownButtonFormField<String>(
-              value: _method,
+              initialValue: _method,
               decoration: const InputDecoration(
                 labelText: 'Payment Method',
                 prefixIcon: Icon(Icons.payment_outlined),

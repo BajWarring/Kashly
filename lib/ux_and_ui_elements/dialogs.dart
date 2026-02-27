@@ -210,7 +210,7 @@ Future<Map<String, dynamic>?> showCreateCashbookDialog(BuildContext context) asy
             ),
             const SizedBox(height: 12),
             DropdownButtonFormField<String>(
-              value: currency,
+              initialValue: currency,
               decoration: const InputDecoration(labelText: 'Currency'),
               items: currencies.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
               onChanged: (v) => setState(() => currency = v ?? 'USD'),

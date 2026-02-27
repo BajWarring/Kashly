@@ -93,11 +93,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     try {
                       final file =
                           await generateBackupReportPdf(history);
-                      if (!mounted) return;
+                      if (!context.mounted) return;
                       showSuccessSnackbar(
                           context, 'PDF saved: ${file.path}');
                     } catch (e) {
-                      if (!mounted) return;
+                      if (!context.mounted) return;
                       showErrorSnackbar(context, 'Failed: $e');
                     }
                   },
@@ -110,11 +110,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     try {
                       final file =
                           await exportBackupManifest(history);
-                      if (!mounted) return;
+                      if (!context.mounted) return;
                       showSuccessSnackbar(
                           context, 'CSV saved: ${file.path}');
                     } catch (e) {
-                      if (!mounted) return;
+                      if (!context.mounted) return;
                       showErrorSnackbar(context, 'Failed: $e');
                     }
                   },
@@ -171,7 +171,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 title: const Text('Force Resync'),
                 onTap: () async {
                   await ref.read(syncServiceProvider).forceResync();
-                  if (!mounted) return;
+                  if (!context.mounted) return;
                   showSuccessSnackbar(context, 'Resync triggered');
                 },
               ),
@@ -237,10 +237,10 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _vacuumDb(BuildContext context) async {
     try {
       await ref.read(localDatasourceProvider).vacuumDb();
-      if (!mounted) return;
+      if (!context.mounted) return;
       showSuccessSnackbar(context, 'Database optimized successfully');
     } catch (e) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       showErrorSnackbar(context, 'Vacuum failed: $e');
     }
   }
@@ -249,7 +249,7 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final confirmed =
         await showDeleteConfirmation(context, 'local cache');
     if (confirmed == true) {
-      if (!mounted) return;
+      if (!context.mounted) return;
       showSuccessSnackbar(context, 'Cache cleared');
     }
   }

@@ -241,7 +241,7 @@ class _CashFlowChart extends StatelessWidget {
               gridData: FlGridData(
                 show: true,
                 drawVerticalLine: false,
-                getDrawingHorizontalLine: (_) => FlLine(color: AppColors.divider, strokeWidth: 0.5),
+                getDrawingHorizontalLine: (_) => const FlLine(color: AppColors.divider, strokeWidth: 0.5),
               ),
               titlesData: FlTitlesData(
                 leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
