@@ -98,7 +98,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
   ) async {
     try {
       final tx = await localDatasource.getTransactionById(id);
-      if (tx == null) throw CacheException('Transaction not found');
+      if (tx == null) throw const CacheException('Transaction not found');
       await localDatasource.updateTransaction(
         tx.copyWith(
           syncStatus: TransactionSyncStatus.synced,
@@ -121,7 +121,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
   Future<void> markAsModified(String id) async {
     try {
       final tx = await localDatasource.getTransactionById(id);
-      if (tx == null) throw CacheException('Transaction not found');
+      if (tx == null) throw const CacheException('Transaction not found');
       await localDatasource.updateTransaction(
         tx.copyWith(
           driveMeta: tx.driveMeta.copyWith(isModifiedSinceUpload: true),
@@ -172,7 +172,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
   Future<void> reconcileTransaction(String id, bool reconciled) async {
     try {
       final tx = await localDatasource.getTransactionById(id);
-      if (tx == null) throw CacheException('Transaction not found');
+      if (tx == null) throw const CacheException('Transaction not found');
       await localDatasource
           .updateTransaction(tx.copyWith(isReconciled: reconciled));
     } catch (e) {
@@ -193,7 +193,7 @@ class TransactionRepositoryImpl implements TransactionRepository {
   Future<void> resolveConflict(String id, String resolution) async {
     try {
       final tx = await localDatasource.getTransactionById(id);
-      if (tx == null) throw CacheException('Transaction not found');
+      if (tx == null) throw const CacheException('Transaction not found');
       await localDatasource.updateTransaction(
         tx.copyWith(syncStatus: TransactionSyncStatus.synced),
       );

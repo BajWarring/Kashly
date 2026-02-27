@@ -51,11 +51,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                         ref.read(authProvider.notifier).signOut();
                       }
                     },
-                    itemBuilder: (_) => [
-                      const PopupMenuItem(
+                    itemBuilder: (_) => const [
+                      PopupMenuItem(
                           value: 'switch',
                           child: Text('Switch Account')),
-                      const PopupMenuItem(
+                      PopupMenuItem(
                           value: 'signout', child: Text('Sign Out')),
                     ],
                   )
@@ -93,14 +93,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     try {
                       final file =
                           await generateBackupReportPdf(history);
-                      if (mounted) {
-                        showSuccessSnackbar(
-                            context, 'PDF saved: ${file.path}');
-                      }
+                      if (!mounted) return;
+                      showSuccessSnackbar(
+                          context, 'PDF saved: ${file.path}');
                     } catch (e) {
-                      if (mounted) {
-                        showErrorSnackbar(context, 'Failed: $e');
-                      }
+                      if (!mounted) return;
+                      showErrorSnackbar(context, 'Failed: $e');
                     }
                   },
                   trailing: const Icon(Icons.chevron_right),
@@ -112,14 +110,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     try {
                       final file =
                           await exportBackupManifest(history);
-                      if (mounted) {
-                        showSuccessSnackbar(
-                            context, 'CSV saved: ${file.path}');
-                      }
+                      if (!mounted) return;
+                      showSuccessSnackbar(
+                          context, 'CSV saved: ${file.path}');
                     } catch (e) {
-                      if (mounted) {
-                        showErrorSnackbar(context, 'Failed: $e');
-                      }
+                      if (!mounted) return;
+                      showErrorSnackbar(context, 'Failed: $e');
                     }
                   },
                   trailing: const Icon(Icons.chevron_right),
@@ -175,9 +171,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                 title: const Text('Force Resync'),
                 onTap: () async {
                   await ref.read(syncServiceProvider).forceResync();
-                  if (mounted) {
-                    showSuccessSnackbar(context, 'Resync triggered');
-                  }
+                  if (!mounted) return;
+                  showSuccessSnackbar(context, 'Resync triggered');
                 },
               ),
               ListTile(
@@ -242,11 +237,11 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   Future<void> _vacuumDb(BuildContext context) async {
     try {
       await ref.read(localDatasourceProvider).vacuumDb();
-      if (mounted) {
-        showSuccessSnackbar(context, 'Database optimized successfully');
-      }
+      if (!mounted) return;
+      showSuccessSnackbar(context, 'Database optimized successfully');
     } catch (e) {
-      if (mounted) showErrorSnackbar(context, 'Vacuum failed: $e');
+      if (!mounted) return;
+      showErrorSnackbar(context, 'Vacuum failed: $e');
     }
   }
 
@@ -254,7 +249,8 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
     final confirmed =
         await showDeleteConfirmation(context, 'local cache');
     if (confirmed == true) {
-      if (mounted) showSuccessSnackbar(context, 'Cache cleared');
+      if (!mounted) return;
+      showSuccessSnackbar(context, 'Cache cleared');
     }
   }
 }

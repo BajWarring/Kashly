@@ -1,6 +1,5 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:googleapis/drive/v3.dart' as drive;
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
@@ -10,7 +9,6 @@ import 'package:logger/logger.dart';
 import 'package:kashly/domain/entities/backup_record.dart';
 import 'package:kashly/domain/entities/transaction.dart';
 import 'package:kashly/data/datasources/local_datasource.dart';
-import 'package:kashly/core/error/exceptions.dart';
 import 'package:kashly/core/utils/utils.dart';
 import 'package:kashly/ux_and_ui_elements/dialogs.dart';
 
@@ -42,7 +40,7 @@ class BackupService {
   Future<void> incrementalBackup() async {
     final headers = await getAuthHeaders();
     if (headers.isEmpty) {
-      _logger.w('Not signed in – skipping Drive backup');
+      _logger.w('Not signed in — skipping Drive backup');
       return;
     }
 

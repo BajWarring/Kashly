@@ -55,7 +55,7 @@ class AuthNotifier extends StateNotifier<AuthState> {
       if (account != null) {
         state = AuthState(user: account, isAuthenticated: true);
       } else {
-        state = AuthState(error: 'Sign-in cancelled');
+        state = const AuthState(error: 'Sign-in cancelled');
       }
     } catch (e) {
       state = AuthState(error: 'Sign-in failed: $e');

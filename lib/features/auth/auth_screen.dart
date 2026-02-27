@@ -66,11 +66,11 @@ class AuthScreen extends ConsumerWidget {
           ),
         ),
         const SizedBox(height: 24),
-        ListTile(
-          leading: const Icon(Icons.drive_folder_upload_outlined),
-          title: const Text('Google Drive Connected'),
-          subtitle: const Text('Backups will sync to your Drive'),
-          trailing: const Icon(Icons.check_circle, color: Colors.green, size: 20),
+        const ListTile(
+          leading: Icon(Icons.drive_folder_upload_outlined),
+          title: Text('Google Drive Connected'),
+          subtitle: Text('Backups will sync to your Drive'),
+          trailing: Icon(Icons.check_circle, color: Colors.green, size: 20),
         ),
         const Divider(),
         ListTile(
@@ -125,7 +125,7 @@ class AuthScreen extends ConsumerWidget {
         if (authState.error != null) ...[
           const SizedBox(height: 16),
           Card(
-            color: Colors.red.shade900.withOpacity(0.2),
+            color: Colors.red.shade900.withValues(alpha: 0.2),
             child: Padding(
               padding: const EdgeInsets.all(12),
               child: Text(authState.error!, style: const TextStyle(color: Colors.red)),

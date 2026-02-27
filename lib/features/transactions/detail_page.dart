@@ -149,7 +149,7 @@ class TransactionDetailPage extends ConsumerWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                           decoration: BoxDecoration(
-                            color: Colors.amber.withOpacity(0.2),
+                            color: Colors.amber.withValues(alpha: 0.2),
                             borderRadius: BorderRadius.circular(4),
                           ),
                           child: const Text('Modified since last upload', style: TextStyle(fontSize: 12, color: Colors.amber)),
@@ -229,7 +229,6 @@ class _HistorySection extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Using a simple FutureBuilder-style provider
     return FutureBuilder<List<TransactionHistory>>(
       future: ref.read(transactionRepositoryProvider).getHistory(transactionId),
       builder: (context, snapshot) {

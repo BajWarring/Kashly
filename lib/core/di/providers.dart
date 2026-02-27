@@ -143,12 +143,16 @@ final filteredCashbooksProvider = Provider<AsyncValue<List<Cashbook>>>((ref) {
           !cb.name.toLowerCase().contains(filter.searchQuery.toLowerCase())) {
         return false;
       }
-      if (filter.activeFilters.contains('archived') && !cb.isArchived) return false;
-      if (filter.activeFilters.contains('active') && cb.isArchived) return false;
+      if (filter.activeFilters.contains('archived') && !cb.isArchived) {
+        return false;
+      }
+      if (filter.activeFilters.contains('active') && cb.isArchived) {
+        return false;
+      }
       if (filter.activeFilters.contains('synced') &&
-          cb.syncStatus != SyncStatus.synced) return false;
+          cb.syncStatus != SyncStatus.synced) { return false; }
       if (filter.activeFilters.contains('unsynced') &&
-          cb.syncStatus == SyncStatus.synced) return false;
+          cb.syncStatus == SyncStatus.synced) { return false; }
       return true;
     }).toList();
 

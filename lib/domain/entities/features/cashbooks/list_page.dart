@@ -7,7 +7,7 @@ class CashbooksListPage extends StatelessWidget {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: const Text('Cashbooks')),
-      body: ListView(
+      body: const ListView(
         children: [
           // TODO: Add search, sort, filters, fields, actions as per spec
           // search: true

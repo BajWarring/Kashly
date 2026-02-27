@@ -163,15 +163,15 @@ class _BackupCenterScreenState extends ConsumerState<BackupCenterScreen> {
     try {
       await ref.read(backupServiceProvider).manualBackup(context);
       _refreshAll();
-      if (mounted) showSuccessSnackbar(context, 'Backup completed successfully');
+      if (context.mounted) showSuccessSnackbar(context, 'Backup completed successfully');
     } catch (e) {
-      if (mounted) showErrorSnackbar(context, 'Backup failed: $e');
+      if (context.mounted) showErrorSnackbar(context, 'Backup failed: $e');
     }
   }
 
   Future<void> _runRestore(BuildContext context) async {
     final history = await ref.read(backupRepositoryProvider).getBackupHistory();
-    if (!mounted) return;
+    if (!context.mounted) return;
     if (history.isEmpty) {
       showErrorSnackbar(context, 'No backups available to restore');
       return;
@@ -216,9 +216,9 @@ class _BackupCenterScreenState extends ConsumerState<BackupCenterScreen> {
     try {
       await ref.read(syncServiceProvider).triggerSync(SyncTrigger.manual);
       _refreshAll();
-      if (mounted) showSuccessSnackbar(context, 'Upload queued for ${_selectedEntries.length} entries');
+      if (context.mounted) showSuccessSnackbar(context, 'Upload queued for ${_selectedEntries.length} entries');
     } catch (e) {
-      if (mounted) showErrorSnackbar(context, 'Upload failed: $e');
+      if (context.mounted) showErrorSnackbar(context, 'Upload failed: $e');
     }
   }
 
@@ -228,7 +228,7 @@ class _BackupCenterScreenState extends ConsumerState<BackupCenterScreen> {
       _selectedEntries.clear();
       _selectAll = false;
     });
-    if (mounted) showSuccessSnackbar(context, 'Entries marked as local-only');
+    if (context.mounted) showSuccessSnackbar(context, 'Entries marked as local-only');
   }
 
   Future<void> _resolveConflict(BuildContext context, Transaction tx) async {
@@ -239,24 +239,24 @@ class _BackupCenterScreenState extends ConsumerState<BackupCenterScreen> {
     if (resolution == null) return;
     await ref.read(transactionRepositoryProvider).resolveConflict(tx.id, resolution);
     ref.invalidate(conflictTransactionsProvider);
-    if (mounted) showSuccessSnackbar(context, 'Conflict resolved ($resolution)');
+    if (context.mounted) showSuccessSnackbar(context, 'Conflict resolved ($resolution)');
   }
 
   Future<void> _generatePdf(BuildContext context, List<BackupRecord> records) async {
     try {
       final file = await generateBackupReportPdf(records);
-      if (mounted) showSuccessSnackbar(context, 'PDF saved: ${file.path}');
+      if (context.mounted) showSuccessSnackbar(context, 'PDF saved: ${file.path}');
     } catch (e) {
-      if (mounted) showErrorSnackbar(context, 'PDF generation failed: $e');
+      if (context.mounted) showErrorSnackbar(context, 'PDF generation failed: $e');
     }
   }
 
   Future<void> _exportCsv(BuildContext context, List<BackupRecord> records) async {
     try {
       final file = await exportBackupManifest(records);
-      if (mounted) showSuccessSnackbar(context, 'CSV saved: ${file.path}');
+      if (context.mounted) showSuccessSnackbar(context, 'CSV saved: ${file.path}');
     } catch (e) {
-      if (mounted) showErrorSnackbar(context, 'CSV export failed: $e');
+      if (context.mounted) showErrorSnackbar(context, 'CSV export failed: $e');
     }
   }
 }
@@ -270,8 +270,8 @@ class _DriveStatusCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Card(
       color: isConnected
-          ? Colors.green.shade900.withOpacity(0.2)
-          : Colors.orange.shade900.withOpacity(0.2),
+          ? Colors.green.shade900.withValues(alpha: 0.2)
+          : Colors.orange.shade900.withValues(alpha: 0.2),
       child: ListTile(
         leading: Icon(
           isConnected ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
@@ -444,7 +444,7 @@ class _CountBadge extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.2),
+        color: color.withValues(alpha: 0.2),
         borderRadius: BorderRadius.circular(4),
       ),
       child: Text('$count $label', style: TextStyle(fontSize: 11, color: color)),
@@ -460,7 +460,7 @@ class _ConflictsSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.deepOrange.shade900.withOpacity(0.15),
+      color: Colors.deepOrange.shade900.withValues(alpha: 0.15),
       child: ExpansionTile(
         initiallyExpanded: true,
         leading: const Icon(Icons.warning_amber, color: Colors.deepOrange),

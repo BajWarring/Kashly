@@ -87,11 +87,11 @@ Future<String?> showConflictResolutionModal(
   return showDialog<String>(
     context: context,
     builder: (context) => AlertDialog(
-      title: Row(
+      title: const Row(
         children: [
           Icon(Icons.warning_amber, color: Colors.orange),
-          const SizedBox(width: 8),
-          const Text('Resolve Conflict'),
+          SizedBox(width: 8),
+          Text('Resolve Conflict'),
         ],
       ),
       content: SizedBox(

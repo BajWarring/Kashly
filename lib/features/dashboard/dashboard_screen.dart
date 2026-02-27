@@ -7,7 +7,6 @@ import 'package:kashly/core/theme/app_theme.dart';
 import 'package:kashly/core/utils/utils.dart';
 import 'package:kashly/core/utils/icons.dart';
 import 'package:kashly/domain/entities/cashbook.dart';
-import 'package:kashly/domain/entities/transaction.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -65,7 +64,7 @@ class DashboardScreen extends ConsumerWidget {
               data: (cashbooks) => cashbooks.isNotEmpty
                   ? Column(
                       children: [
-                        _SectionHeader(title: 'Cash Flow', onAction: null),
+                        const _SectionHeader(title: 'Cash Flow', onAction: null),
                         _CashFlowChart(cashbooks: cashbooks),
                         const SizedBox(height: 16),
                         _SectionHeader(title: 'My Cashbooks', onAction: () => context.go('/cashbooks')),
@@ -95,7 +94,7 @@ class _DriveStatusBanner extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.orange.shade900.withOpacity(0.3),
+      color: Colors.orange.shade900.withValues(alpha: 0.3),
       margin: const EdgeInsets.only(bottom: 16),
       child: ListTile(
         leading: const Icon(Icons.cloud_off, color: Colors.orange),
@@ -192,7 +191,7 @@ class _PendingUploadsCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: Colors.amber.shade900.withOpacity(0.2),
+      color: Colors.amber.shade900.withValues(alpha: 0.2),
       margin: const EdgeInsets.only(bottom: 16),
       child: ListTile(
         leading: const Icon(Icons.cloud_upload_outlined, color: Colors.amber),
@@ -245,9 +244,9 @@ class _CashFlowChart extends StatelessWidget {
                 getDrawingHorizontalLine: (_) => FlLine(color: AppColors.divider, strokeWidth: 0.5),
               ),
               titlesData: FlTitlesData(
-                leftTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                rightTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
-                topTitles: AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                leftTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
                 bottomTitles: AxisTitles(
                   sideTitles: SideTitles(
                     showTitles: true,
@@ -266,16 +265,16 @@ class _CashFlowChart extends StatelessWidget {
                   isCurved: true,
                   color: AppColors.cashIn,
                   barWidth: 2,
-                  dotData: FlDotData(show: false),
-                  belowBarData: BarAreaData(show: true, color: AppColors.cashIn.withOpacity(0.1)),
+                  dotData: const FlDotData(show: false),
+                  belowBarData: BarAreaData(show: true, color: AppColors.cashIn.withValues(alpha: 0.1)),
                 ),
                 LineChartBarData(
                   spots: List.generate(6, (i) => FlSpot(i.toDouble(), (i * 800 + 1500).toDouble())),
                   isCurved: true,
                   color: AppColors.cashOut,
                   barWidth: 2,
-                  dotData: FlDotData(show: false),
-                  belowBarData: BarAreaData(show: true, color: AppColors.cashOut.withOpacity(0.1)),
+                  dotData: const FlDotData(show: false),
+                  belowBarData: BarAreaData(show: true, color: AppColors.cashOut.withValues(alpha: 0.1)),
                 ),
               ],
             ),
@@ -296,7 +295,7 @@ class _CashbookSummaryTile extends ConsumerWidget {
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
         leading: CircleAvatar(
-          backgroundColor: AppColors.primary.withOpacity(0.2),
+          backgroundColor: AppColors.primary.withValues(alpha: 0.2),
           child: Text(cashbook.name.substring(0, 1).toUpperCase(),
             style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.primary)),
         ),

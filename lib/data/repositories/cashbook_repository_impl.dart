@@ -57,7 +57,7 @@ class CashbookRepositoryImpl implements CashbookRepository {
   Future<void> archiveCashbook(String id, bool archived) async {
     try {
       final cb = await localDatasource.getCashbookById(id);
-      if (cb == null) throw CacheException('Cashbook not found');
+      if (cb == null) throw const CacheException('Cashbook not found');
       await localDatasource.updateCashbook(cb.copyWith(isArchived: archived));
     } catch (e) {
       throw CacheException('Failed to archive cashbook: $e');

@@ -19,7 +19,7 @@ class CashbookDetailPage extends ConsumerStatefulWidget {
 
 class _CashbookDetailPageState extends ConsumerState<CashbookDetailPage> {
   String _searchQuery = '';
-  int _pageSize = 30;
+  final int _pageSize = 30;
   int _loadedCount = 30;
 
   @override
@@ -48,11 +48,11 @@ class _CashbookDetailPageState extends ConsumerState<CashbookDetailPage> {
               ),
               PopupMenuButton<String>(
                 onSelected: (v) => _handleAction(context, ref, cashbook, v),
-                itemBuilder: (_) => [
-                  const PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Edit'), dense: true)),
-                  const PopupMenuItem(value: 'archive', child: ListTile(leading: Icon(Icons.archive_outlined), title: Text('Archive'), dense: true)),
-                  const PopupMenuItem(value: 'export', child: ListTile(leading: Icon(Icons.download_outlined), title: Text('Export CSV'), dense: true)),
-                  const PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(Icons.delete_outline, color: Colors.red), title: Text('Delete', style: TextStyle(color: Colors.red)), dense: true)),
+                itemBuilder: (_) => const [
+                  PopupMenuItem(value: 'edit', child: ListTile(leading: Icon(Icons.edit_outlined), title: Text('Edit'), dense: true)),
+                  PopupMenuItem(value: 'archive', child: ListTile(leading: Icon(Icons.archive_outlined), title: Text('Archive'), dense: true)),
+                  PopupMenuItem(value: 'export', child: ListTile(leading: Icon(Icons.download_outlined), title: Text('Export CSV'), dense: true)),
+                  PopupMenuItem(value: 'delete', child: ListTile(leading: Icon(Icons.delete_outline, color: Colors.red), title: Text('Delete', style: TextStyle(color: Colors.red)), dense: true)),
                 ],
               ),
             ],
@@ -116,13 +116,13 @@ class _CashbookDetailPageState extends ConsumerState<CashbookDetailPage> {
                     }
 
                     if (filtered.isEmpty) {
-                      return Center(
+                      return const Center(
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            const Icon(Icons.receipt_long_outlined, size: 48, color: Colors.grey),
-                            const SizedBox(height: 12),
-                            const Text('No transactions yet', style: TextStyle(color: Colors.grey)),
+                            Icon(Icons.receipt_long_outlined, size: 48, color: Colors.grey),
+                            SizedBox(height: 12),
+                            Text('No transactions yet', style: TextStyle(color: Colors.grey)),
                           ],
                         ),
                       );
@@ -250,7 +250,7 @@ class _SummaryCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      color: isMain ? const Color(0xFF1A73E8).withOpacity(0.15) : null,
+      color: isMain ? const Color(0xFF1A73E8).withValues(alpha: 0.15) : null,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
         child: Column(
@@ -307,7 +307,7 @@ class _TransactionTile extends StatelessWidget {
                 width: 36,
                 height: 36,
                 decoration: BoxDecoration(
-                  color: (isIn ? AppColors.cashIn : AppColors.cashOut).withOpacity(0.15),
+                  color: (isIn ? AppColors.cashIn : AppColors.cashOut).withValues(alpha: 0.15),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(

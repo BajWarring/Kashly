@@ -25,9 +25,9 @@ class CashbooksListPage extends ConsumerWidget {
             onSelected: (v) => ref.read(cashbookFilterProvider.notifier).update(
               (s) => s.copyWith(sortBy: v),
             ),
-            itemBuilder: (_) => [
-              const PopupMenuItem(value: 'name', child: Text('Sort by Name')),
-              const PopupMenuItem(value: 'updated_at', child: Text('Sort by Last Updated')),
+            itemBuilder: (_) => const [
+              PopupMenuItem(value: 'name', child: Text('Sort by Name')),
+              PopupMenuItem(value: 'updated_at', child: Text('Sort by Last Updated')),
             ],
           ),
         ],
@@ -79,13 +79,13 @@ class CashbooksListPage extends ConsumerWidget {
           Expanded(
             child: filteredAsync.when(
               data: (cashbooks) => cashbooks.isEmpty
-                  ? Center(
+                  ? const Center(
                       child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
-                          const Icon(Icons.book_outlined, size: 48, color: Colors.grey),
-                          const SizedBox(height: 12),
-                          const Text('No cashbooks found', style: TextStyle(color: Colors.grey)),
+                          Icon(Icons.book_outlined, size: 48, color: Colors.grey),
+                          SizedBox(height: 12),
+                          Text('No cashbooks found', style: TextStyle(color: Colors.grey)),
                         ],
                       ),
                     )
@@ -207,7 +207,9 @@ class _CashbookCard extends ConsumerWidget {
             children: [
               CircleAvatar(
                 radius: 22,
-                backgroundColor: cashbook.isArchived ? Colors.grey.withOpacity(0.2) : const Color(0xFF1A73E8).withOpacity(0.15),
+                backgroundColor: cashbook.isArchived
+                    ? Colors.grey.withValues(alpha: 0.2)
+                    : const Color(0xFF1A73E8).withValues(alpha: 0.15),
                 child: Text(
                   cashbook.name.substring(0, 1).toUpperCase(),
                   style: TextStyle(
@@ -234,7 +236,7 @@ class _CashbookCard extends ConsumerWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                             decoration: BoxDecoration(
-                              color: Colors.grey.withOpacity(0.3),
+                              color: Colors.grey.withValues(alpha: 0.3),
                               borderRadius: BorderRadius.circular(4),
                             ),
                             child: const Text('Archived', style: TextStyle(fontSize: 10, color: Colors.grey)),
