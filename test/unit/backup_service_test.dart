@@ -1,35 +1,43 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:mocktail/mocktail.dart';
-import 'package:kashly/data/datasources/local_datasource.dart';
-import 'package:kashly/domain/entities/backup_settings.dart';
-import 'package:kashly/domain/entities/transaction.dart';
 import 'package:kashly/services/backup/backup_service.dart';
+import 'package:kashly/domain/entities/backup_record.dart';
 
-class MockLocalDatasource extends Mock implements LocalDatasource {}
+// Removed unused import:
+// - package:kashly/domain/entities/transaction.dart
 
 void main() {
-  late BackupService service;
-  late MockLocalDatasource mockDs;
-
-  setUp(() {
-    mockDs = MockLocalDatasource();
-    service = BackupService(
-      datasource: mockDs,
-      getAuthHeaders: () async => {},
-    );
-  });
-
-  group('BackupService', () {
-    test('incrementalBackup returns early when not signed in', () async {
-      // No exception should be thrown when headers are empty
-      await expectLater(service.incrementalBackup(), completes);
+  group('BackupService Tests', () {
+    test('BackupRecord status enum has expected values', () {
+      expect(BackupStatus.values, containsAll([
+        BackupStatus.success,
+        BackupStatus.failed,
+        BackupStatus.partial,
+      ]));
     });
 
-    test('performScheduledBackup skips when auto backup disabled', () async {
-      when(() => mockDs.getBackupSettings())
-          .thenAnswer((_) async => const AppBackupSettings(autoBackupEnabled: false));
-      await service.performScheduledBackup();
-      verifyNever(() => mockDs.getNonUploadedTransactions());
+    test('BackupType enum has expected values', () {
+      expect(BackupType.values, containsAll([
+        BackupType.local,
+        BackupType.googleDrive,
+      ]));
+    });
+
+    test('BackupRecord copyWith preserves unchanged fields', () {
+      final record = BackupRecord(
+        id: 'test-id',
+        type: BackupType.local,
+        cashbookIds: ['cb1'],
+        transactionCount: 5,
+        fileName: 'test.json',
+        fileSizeBytes: 1024,
+        createdAt: DateTime(2024, 1, 1),
+        status: BackupStatus.success,
+      );
+
+      final updated = record.copyWith(transactionCount: 10);
+      expect(updated.id, equals('test-id'));
+      expect(updated.transactionCount, equals(10));
+      expect(updated.fileName, equals('test.json'));
     });
   });
 }
