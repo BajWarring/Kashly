@@ -25,7 +25,7 @@ class AppTheme {
     ),
     useMaterial3: true,
     typography: Typography.material2021(),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 2,
     ),
@@ -63,7 +63,7 @@ class AppTheme {
     useMaterial3: true,
     typography: Typography.material2021(),
     scaffoldBackgroundColor: const Color(0xFF12121F),
-    cardTheme: CardTheme(
+    cardTheme: CardThemeData(
       color: AppColors.cardBackground,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       elevation: 0,

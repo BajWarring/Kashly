@@ -20,9 +20,11 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
-  Future<List<Transaction>> getTransactions(String cashbookId, {int? limit, int? offset}) async {
+  Future<List<Transaction>> getTransactions(String cashbookId,
+      {int? limit, int? offset}) async {
     try {
-      return await localDatasource.getTransactions(cashbookId, limit: limit, offset: offset);
+      return await localDatasource.getTransactions(cashbookId,
+          limit: limit, offset: offset);
     } catch (e) {
       throw CacheException('Failed to get transactions: $e');
     }
@@ -38,17 +40,20 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
-  Future<void> updateTransaction(Transaction transaction, String changedBy) async {
+  Future<void> updateTransaction(Transaction transaction,
+      String changedBy) async {
     try {
-      final old = await localDatasource.getTransactionById(transaction.id);
+      final old =
+          await localDatasource.getTransactionById(transaction.id);
       if (old != null) {
-        // Track history for changed fields
         await _trackChanges(old, transaction, changedBy);
       }
       await localDatasource.updateTransaction(
         transaction.copyWith(
           updatedAt: DateTime.now(),
-          driveMeta: transaction.driveMeta.copyWith(isModifiedSinceUpload: transaction.driveMeta.isUploaded),
+          driveMeta: transaction.driveMeta.copyWith(
+              isModifiedSinceUpload:
+                  transaction.driveMeta.isUploaded),
           syncStatus: TransactionSyncStatus.pending,
         ),
       );
@@ -129,7 +134,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
-  Future<List<TransactionHistory>> getHistory(String transactionId) async {
+  Future<List<TransactionHistory>> getHistory(
+      String transactionId) async {
     try {
       return await localDatasource.getHistory(transactionId);
     } catch (e) {
@@ -138,9 +144,11 @@ class TransactionRepositoryImpl implements TransactionRepository {
   }
 
   @override
-  Future<List<Transaction>> searchTransactions(String cashbookId, String query) async {
+  Future<List<Transaction>> searchTransactions(
+      String cashbookId, String query) async {
     try {
-      return await localDatasource.searchTransactions(cashbookId, query);
+      return await localDatasource.searchTransactions(
+          cashbookId, query);
     } catch (e) {
       throw CacheException('Failed to search: $e');
     }
@@ -153,7 +161,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
     DateTime to,
   ) async {
     try {
-      return await localDatasource.getTransactionsByDateRange(cashbookId, from, to);
+      return await localDatasource.getTransactionsByDateRange(
+          cashbookId, from, to);
     } catch (e) {
       throw CacheException('Failed to get by date range: $e');
     }
@@ -164,7 +173,8 @@ class TransactionRepositoryImpl implements TransactionRepository {
     try {
       final tx = await localDatasource.getTransactionById(id);
       if (tx == null) throw CacheException('Transaction not found');
-      await localDatasource.updateTransaction(tx.copyWith(isReconciled: reconciled));
+      await localDatasource
+          .updateTransaction(tx.copyWith(isReconciled: reconciled));
     } catch (e) {
       throw CacheException('Failed to reconcile: $e');
     }
@@ -198,12 +208,18 @@ class TransactionRepositoryImpl implements TransactionRepository {
     String changedBy,
   ) async {
     final fields = <String, List<String>>{
-      'amount': [old.amount.toString(), updated.amount.toString()],
+      'amount': [
+        old.amount.toString(),
+        updated.amount.toString()
+      ],
       'type': [old.type.name, updated.type.name],
       'category': [old.category, updated.category],
       'remark': [old.remark, updated.remark],
       'method': [old.method, updated.method],
-      'date': [old.date.toIso8601String(), updated.date.toIso8601String()],
+      'date': [
+        old.date.toIso8601String(),
+        updated.date.toIso8601String()
+      ],
     };
 
     for (final entry in fields.entries) {

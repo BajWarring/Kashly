@@ -1,4 +1,4 @@
-import 'package:sqflite/sqflite.dart';
+import 'package:sqflite/sqflite.dart' hide Transaction;
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:kashly/domain/entities/cashbook.dart';
@@ -120,7 +120,7 @@ class LocalDatasource {
     // Handle future migrations
   }
 
-  // ─── Cashbooks ────────────────────────────────────────────────────
+  // ─── Cashbooks ──────────────────────────────────────────────────────
 
   Future<void> insertCashbook(Cashbook cashbook) async {
     try {
@@ -229,7 +229,7 @@ class LocalDatasource {
     return (result.first['total'] as num).toDouble();
   }
 
-  // ─── Transactions ─────────────────────────────────────────────────
+  // ─── Transactions ───────────────────────────────────────────────────
 
   Future<void> insertTransaction(Transaction transaction) async {
     try {
@@ -371,7 +371,7 @@ class LocalDatasource {
     }
   }
 
-  // ─── Transaction History ──────────────────────────────────────────
+  // ─── Transaction History ─────────────────────────────────────────────
 
   Future<void> insertHistory(TransactionHistory history) async {
     try {
@@ -415,7 +415,7 @@ class LocalDatasource {
     }
   }
 
-  // ─── Backup Records ───────────────────────────────────────────────
+  // ─── Backup Records ──────────────────────────────────────────────────
 
   Future<void> insertBackupRecord(BackupRecord record) async {
     try {
@@ -469,7 +469,7 @@ class LocalDatasource {
     }
   }
 
-  // ─── App Settings ─────────────────────────────────────────────────
+  // ─── App Settings ────────────────────────────────────────────────────
 
   Future<String?> getSetting(String key) async {
     try {
@@ -499,7 +499,7 @@ class LocalDatasource {
     final json = await getSetting('backup_settings');
     if (json == null) return const AppBackupSettings();
     try {
-      return AppBackupSettings.fromJson(jsonDecode(json));
+      return AppBackupSettings.fromJson(jsonDecode(json) as Map<String, dynamic>);
     } catch (_) {
       return const AppBackupSettings();
     }
@@ -520,7 +520,7 @@ class LocalDatasource {
     _db = null;
   }
 
-  // ─── Helpers ──────────────────────────────────────────────────────
+  // ─── Helpers ─────────────────────────────────────────────────────────
 
   Map<String, dynamic> _cashbookToMap(Cashbook cb) => {
         'id': cb.id,
@@ -627,7 +627,8 @@ class LocalDatasource {
           (e) => e.name == m['type'],
           orElse: () => BackupType.local,
         ),
-        cashbookIds: List<String>.from(jsonDecode(m['cashbook_ids'] as String)),
+        cashbookIds: List<String>.from(
+            jsonDecode(m['cashbook_ids'] as String) as List),
         transactionCount: m['transaction_count'] as int,
         fileName: m['file_name'] as String,
         fileSizeBytes: m['file_size_bytes'] as int,

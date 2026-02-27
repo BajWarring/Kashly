@@ -8,11 +8,28 @@ import 'package:kashly/ux_and_ui_elements/dialogs.dart';
 import 'package:kashly/services/sync_engine/sync_service.dart';
 
 const _categories = [
-  'Food & Dining', 'Transport', 'Utilities', 'Shopping', 'Entertainment',
-  'Healthcare', 'Education', 'Salary', 'Business', 'Transfer', 'Other'
+  'Food & Dining',
+  'Transport',
+  'Utilities',
+  'Shopping',
+  'Entertainment',
+  'Healthcare',
+  'Education',
+  'Salary',
+  'Business',
+  'Transfer',
+  'Other'
 ];
 
-const _methods = ['Cash', 'Bank Transfer', 'Credit Card', 'Debit Card', 'UPI', 'Cheque', 'Other'];
+const _methods = [
+  'Cash',
+  'Bank Transfer',
+  'Credit Card',
+  'Debit Card',
+  'UPI',
+  'Cheque',
+  'Other'
+];
 
 class TransactionEntryForm extends ConsumerStatefulWidget {
   final String cashbookId;
@@ -25,10 +42,12 @@ class TransactionEntryForm extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<TransactionEntryForm> createState() => _TransactionEntryFormState();
+  ConsumerState<TransactionEntryForm> createState() =>
+      _TransactionEntryFormState();
 }
 
-class _TransactionEntryFormState extends ConsumerState<TransactionEntryForm> {
+class _TransactionEntryFormState
+    extends ConsumerState<TransactionEntryForm> {
   final _formKey = GlobalKey<FormState>();
   final _amountCtrl = TextEditingController();
   final _remarkCtrl = TextEditingController();
@@ -69,7 +88,13 @@ class _TransactionEntryFormState extends ConsumerState<TransactionEntryForm> {
         title: Text(isEdit ? 'Edit Transaction' : 'New Transaction'),
         actions: [
           if (_isSaving)
-            const Padding(padding: EdgeInsets.all(16), child: SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2))),
+            const Padding(
+                padding: EdgeInsets.all(16),
+                child: SizedBox(
+                    width: 20,
+                    height: 20,
+                    child:
+                        CircularProgressIndicator(strokeWidth: 2))),
         ],
       ),
       body: Form(
@@ -87,18 +112,22 @@ class _TransactionEntryFormState extends ConsumerState<TransactionEntryForm> {
                       child: _TypeButton(
                         label: 'Cash In',
                         icon: Icons.arrow_downward,
-                        isSelected: _type == TransactionType.cashIn,
+                        isSelected:
+                            _type == TransactionType.cashIn,
                         color: AppColors.cashIn,
-                        onTap: () => setState(() => _type = TransactionType.cashIn),
+                        onTap: () => setState(
+                            () => _type = TransactionType.cashIn),
                       ),
                     ),
                     Expanded(
                       child: _TypeButton(
                         label: 'Cash Out',
                         icon: Icons.arrow_upward,
-                        isSelected: _type == TransactionType.cashOut,
+                        isSelected:
+                            _type == TransactionType.cashOut,
                         color: AppColors.cashOut,
-                        onTap: () => setState(() => _type = TransactionType.cashOut),
+                        onTap: () => setState(
+                            () => _type = TransactionType.cashOut),
                       ),
                     ),
                   ],
@@ -110,15 +139,22 @@ class _TransactionEntryFormState extends ConsumerState<TransactionEntryForm> {
             // Amount
             TextFormField(
               controller: _amountCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true),
               decoration: const InputDecoration(
                 labelText: 'Amount',
                 prefixIcon: Icon(Icons.attach_money),
               ),
               validator: (v) {
-                if (v == null || v.isEmpty) return 'Amount is required';
-                if (double.tryParse(v) == null) return 'Enter a valid number';
-                if (double.parse(v) <= 0) return 'Amount must be positive';
+                if (v == null || v.isEmpty) {
+                  return 'Amount is required';
+                }
+                if (double.tryParse(v) == null) {
+                  return 'Enter a valid number';
+                }
+                if (double.parse(v) <= 0) {
+                  return 'Amount must be positive';
+                }
                 return null;
               },
             ),
@@ -132,7 +168,8 @@ class _TransactionEntryFormState extends ConsumerState<TransactionEntryForm> {
                   labelText: 'Date',
                   prefixIcon: Icon(Icons.calendar_today_outlined),
                 ),
-                child: Text('${_date.day}/${_date.month}/${_date.year}'),
+                child: Text(
+                    '${_date.day}/${_date.month}/${_date.year}'),
               ),
             ),
             const SizedBox(height: 12),
@@ -141,23 +178,31 @@ class _TransactionEntryFormState extends ConsumerState<TransactionEntryForm> {
             Wrap(
               spacing: 6,
               runSpacing: 4,
-              children: _categories.map((cat) => ChoiceChip(
-                label: Text(cat, style: const TextStyle(fontSize: 12)),
-                selected: _category == cat,
-                onSelected: (_) => setState(() => _category = cat),
-              )).toList(),
+              children: _categories
+                  .map((cat) => ChoiceChip(
+                        label: Text(cat,
+                            style: const TextStyle(fontSize: 12)),
+                        selected: _category == cat,
+                        onSelected: (_) =>
+                            setState(() => _category = cat),
+                      ))
+                  .toList(),
             ),
             const SizedBox(height: 12),
 
-            // Category dropdown (manual entry)
+            // Category dropdown
             DropdownButtonFormField<String>(
               value: _category,
               decoration: const InputDecoration(
                 labelText: 'Category',
                 prefixIcon: Icon(Icons.category_outlined),
               ),
-              items: _categories.map((c) => DropdownMenuItem(value: c, child: Text(c))).toList(),
-              onChanged: (v) => setState(() => _category = v ?? _categories.first),
+              items: _categories
+                  .map((c) => DropdownMenuItem(
+                      value: c, child: Text(c)))
+                  .toList(),
+              onChanged: (v) =>
+                  setState(() => _category = v ?? _categories.first),
             ),
             const SizedBox(height: 12),
 
@@ -179,20 +224,28 @@ class _TransactionEntryFormState extends ConsumerState<TransactionEntryForm> {
                 labelText: 'Payment Method',
                 prefixIcon: Icon(Icons.payment_outlined),
               ),
-              items: _methods.map((m) => DropdownMenuItem(value: m, child: Text(m))).toList(),
-              onChanged: (v) => setState(() => _method = v ?? _methods.first),
+              items: _methods
+                  .map((m) => DropdownMenuItem(
+                      value: m, child: Text(m)))
+                  .toList(),
+              onChanged: (v) =>
+                  setState(() => _method = v ?? _methods.first),
             ),
             const SizedBox(height: 12),
 
             // Split entries
             if (_splitEntries.isNotEmpty) ...[
-              const Text('Split Entries', style: TextStyle(fontWeight: FontWeight.w600)),
-              ..._splitEntries.asMap().entries.map((entry) => _SplitEntryRow(
-                index: entry.key,
-                data: entry.value,
-                onRemove: () => setState(() => _splitEntries.removeAt(entry.key)),
-                onChanged: (data) => setState(() => _splitEntries[entry.key] = data),
-              )),
+              const Text('Split Entries',
+                  style: TextStyle(fontWeight: FontWeight.w600)),
+              ..._splitEntries.asMap().entries.map((entry) =>
+                  _SplitEntryRow(
+                    index: entry.key,
+                    data: entry.value,
+                    onRemove: () => setState(
+                        () => _splitEntries.removeAt(entry.key)),
+                    onChanged: (data) => setState(
+                        () => _splitEntries[entry.key] = data),
+                  )),
             ],
 
             OutlinedButton.icon(
@@ -208,7 +261,9 @@ class _TransactionEntryFormState extends ConsumerState<TransactionEntryForm> {
               child: FilledButton.icon(
                 onPressed: _isSaving ? null : _save,
                 icon: const Icon(Icons.save_outlined),
-                label: Text(isEdit ? 'Update Transaction' : 'Save Transaction'),
+                label: Text(isEdit
+                    ? 'Update Transaction'
+                    : 'Save Transaction'),
               ),
             ),
           ],
@@ -229,7 +284,11 @@ class _TransactionEntryFormState extends ConsumerState<TransactionEntryForm> {
 
   void _addSplit() {
     setState(() {
-      _splitEntries.add({'amount': '', 'category': _categories.first, 'remark': ''});
+      _splitEntries.add({
+        'amount': '',
+        'category': _categories.first,
+        'remark': ''
+      });
     });
   }
 
@@ -254,7 +313,8 @@ class _TransactionEntryFormState extends ConsumerState<TransactionEntryForm> {
         createdAt: widget.existingTransaction?.createdAt ?? now,
         updatedAt: now,
         syncStatus: TransactionSyncStatus.pending,
-        driveMeta: widget.existingTransaction?.driveMeta ?? const DriveMeta(),
+        driveMeta: widget.existingTransaction?.driveMeta ??
+            const DriveMeta(),
         isSplit: _splitEntries.isNotEmpty,
       );
 
@@ -270,7 +330,8 @@ class _TransactionEntryFormState extends ConsumerState<TransactionEntryForm> {
           await repo.createTransaction(Transaction(
             id: const Uuid().v4(),
             cashbookId: widget.cashbookId,
-            amount: double.tryParse(split['amount'] as String) ?? 0,
+            amount:
+                double.tryParse(split['amount'] as String) ?? 0,
             type: _type,
             category: split['category'] as String,
             remark: split['remark'] as String? ?? '',
@@ -287,8 +348,8 @@ class _TransactionEntryFormState extends ConsumerState<TransactionEntryForm> {
 
       // Trigger sync
       ref.read(syncServiceProvider).triggerSync(
-        isEdit ? SyncTrigger.editEntry : SyncTrigger.addEntry,
-      );
+            isEdit ? SyncTrigger.editEntry : SyncTrigger.addEntry,
+          );
 
       ref.invalidate(transactionsProvider(widget.cashbookId));
       ref.invalidate(cashbookBalanceProvider(widget.cashbookId));
@@ -297,7 +358,8 @@ class _TransactionEntryFormState extends ConsumerState<TransactionEntryForm> {
       ref.invalidate(nonUploadedTransactionsProvider);
 
       if (mounted) {
-        showSuccessSnackbar(context, isEdit ? 'Transaction updated' : 'Transaction saved');
+        showSuccessSnackbar(context,
+            isEdit ? 'Transaction updated' : 'Transaction saved');
         Navigator.pop(context);
       }
     } catch (e) {
@@ -331,16 +393,22 @@ class _TypeButton extends StatelessWidget {
         duration: const Duration(milliseconds: 150),
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
-          color: isSelected ? color.withOpacity(0.2) : Colors.transparent,
+          color: isSelected
+              ? color.withValues(alpha: 0.2)
+              : Colors.transparent,
           borderRadius: BorderRadius.circular(8),
           border: isSelected ? Border.all(color: color) : null,
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, color: isSelected ? color : Colors.grey, size: 18),
+            Icon(icon,
+                color: isSelected ? color : Colors.grey, size: 18),
             const SizedBox(width: 6),
-            Text(label, style: TextStyle(color: isSelected ? color : Colors.grey, fontWeight: FontWeight.w600)),
+            Text(label,
+                style: TextStyle(
+                    color: isSelected ? color : Colors.grey,
+                    fontWeight: FontWeight.w600)),
           ],
         ),
       ),
@@ -372,20 +440,29 @@ class _SplitEntryRow extends StatelessWidget {
             Expanded(
               child: TextFormField(
                 initialValue: data['amount'] as String?,
-                decoration: const InputDecoration(labelText: 'Amount', isDense: true),
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                onChanged: (v) => onChanged({...data, 'amount': v}),
+                decoration: const InputDecoration(
+                    labelText: 'Amount', isDense: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(
+                        decimal: true),
+                onChanged: (v) =>
+                    onChanged({...data, 'amount': v}),
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: TextFormField(
                 initialValue: data['remark'] as String?,
-                decoration: const InputDecoration(labelText: 'Remark', isDense: true),
-                onChanged: (v) => onChanged({...data, 'remark': v}),
+                decoration: const InputDecoration(
+                    labelText: 'Remark', isDense: true),
+                onChanged: (v) =>
+                    onChanged({...data, 'remark': v}),
               ),
             ),
-            IconButton(icon: const Icon(Icons.remove_circle_outline, color: Colors.red), onPressed: onRemove),
+            IconButton(
+                icon: const Icon(Icons.remove_circle_outline,
+                    color: Colors.red),
+                onPressed: onRemove),
           ],
         ),
       ),

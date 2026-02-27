@@ -19,69 +19,115 @@ Future<File> generateBackupReportPdf(List<BackupRecord> records) async {
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
             children: [
-              pw.Text('Kashly Backup Report', style: pw.TextStyle(fontSize: 24, fontWeight: pw.FontWeight.bold)),
-              pw.Text(formatDate(DateTime.now()), style: const pw.TextStyle(fontSize: 12)),
+              pw.Text('Kashly Backup Report',
+                  style: pw.TextStyle(
+                      fontSize: 24, fontWeight: pw.FontWeight.bold)),
+              pw.Text(formatDate(DateTime.now()),
+                  style: const pw.TextStyle(fontSize: 12)),
             ],
           ),
         ),
         pw.SizedBox(height: 16),
-        pw.Text('Summary', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+        pw.Text('Summary',
+            style:
+                pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
         pw.SizedBox(height: 8),
         pw.Container(
           padding: const pw.EdgeInsets.all(12),
           decoration: pw.BoxDecoration(
             border: pw.Border.all(color: PdfColors.grey300),
-            borderRadius: const pw.BorderRadius.all(pw.Radius.circular(4)),
+            borderRadius:
+                const pw.BorderRadius.all(pw.Radius.circular(4)),
           ),
           child: pw.Row(
             mainAxisAlignment: pw.MainAxisAlignment.spaceAround,
             children: [
               pw.Column(children: [
-                pw.Text('Total Backups', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey)),
-                pw.Text('${records.length}', style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold)),
+                pw.Text('Total Backups',
+                    style: const pw.TextStyle(
+                        fontSize: 10, color: PdfColors.grey)),
+                pw.Text('${records.length}',
+                    style: pw.TextStyle(
+                        fontSize: 18, fontWeight: pw.FontWeight.bold)),
               ]),
               pw.Column(children: [
-                pw.Text('Successful', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey)),
+                pw.Text('Successful',
+                    style: const pw.TextStyle(
+                        fontSize: 10, color: PdfColors.grey)),
                 pw.Text(
-                  records.where((r) => r.status == BackupStatus.success).length.toString(),
-                  style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.green700),
+                  records
+                      .where((r) => r.status == BackupStatus.success)
+                      .length
+                      .toString(),
+                  style: pw.TextStyle(
+                      fontSize: 18,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.green700),
                 ),
               ]),
               pw.Column(children: [
-                pw.Text('Failed', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey)),
+                pw.Text('Failed',
+                    style: const pw.TextStyle(
+                        fontSize: 10, color: PdfColors.grey)),
                 pw.Text(
-                  records.where((r) => r.status == BackupStatus.failed).length.toString(),
-                  style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold, color: PdfColors.red700),
+                  records
+                      .where((r) => r.status == BackupStatus.failed)
+                      .length
+                      .toString(),
+                  style: pw.TextStyle(
+                      fontSize: 18,
+                      fontWeight: pw.FontWeight.bold,
+                      color: PdfColors.red700),
                 ),
               ]),
               pw.Column(children: [
-                pw.Text('Total Size', style: const pw.TextStyle(fontSize: 10, color: PdfColors.grey)),
+                pw.Text('Total Size',
+                    style: const pw.TextStyle(
+                        fontSize: 10, color: PdfColors.grey)),
                 pw.Text(
-                  formatFileSize(records.fold<int>(0, (s, r) => s + r.fileSizeBytes)),
-                  style: pw.TextStyle(fontSize: 18, fontWeight: pw.FontWeight.bold),
+                  formatFileSize(records.fold<int>(
+                      0, (s, r) => s + r.fileSizeBytes)),
+                  style: pw.TextStyle(
+                      fontSize: 18, fontWeight: pw.FontWeight.bold),
                 ),
               ]),
             ],
           ),
         ),
         pw.SizedBox(height: 20),
-        pw.Text('Backup History', style: pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
+        pw.Text('Backup History',
+            style:
+                pw.TextStyle(fontSize: 16, fontWeight: pw.FontWeight.bold)),
         pw.SizedBox(height: 8),
-        pw.Table.fromTextArray(
+        pw.TableHelper.fromTextArray(
           border: pw.TableBorder.all(color: PdfColors.grey300),
-          headerStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
+          headerStyle:
+              pw.TextStyle(fontWeight: pw.FontWeight.bold, fontSize: 10),
           cellStyle: const pw.TextStyle(fontSize: 9),
-          headerDecoration: const pw.BoxDecoration(color: PdfColors.grey200),
-          headers: ['ID', 'Type', 'Date', 'File Name', 'Size', 'Transactions', 'Status'],
-          data: records.map((r) => [
-            r.id.substring(0, 8),
-            r.type.name,
-            formatDate(r.createdAt),
-            r.fileName.length > 20 ? '${r.fileName.substring(0, 20)}...' : r.fileName,
-            formatFileSize(r.fileSizeBytes),
-            '${r.transactionCount}',
-            r.status.name.toUpperCase(),
-          ]).toList(),
+          headerDecoration:
+              const pw.BoxDecoration(color: PdfColors.grey200),
+          headers: [
+            'ID',
+            'Type',
+            'Date',
+            'File Name',
+            'Size',
+            'Transactions',
+            'Status'
+          ],
+          data: records
+              .map((r) => [
+                    r.id.substring(0, 8),
+                    r.type.name,
+                    formatDate(r.createdAt),
+                    r.fileName.length > 20
+                        ? '${r.fileName.substring(0, 20)}...'
+                        : r.fileName,
+                    formatFileSize(r.fileSizeBytes),
+                    '${r.transactionCount}',
+                    r.status.name.toUpperCase(),
+                  ])
+              .toList(),
         ),
         pw.SizedBox(height: 20),
         pw.Divider(),
@@ -94,7 +140,8 @@ Future<File> generateBackupReportPdf(List<BackupRecord> records) async {
   );
 
   final dir = await getApplicationDocumentsDirectory();
-  final fileName = 'kashly_backup_report_${DateTime.now().millisecondsSinceEpoch}.pdf';
+  final fileName =
+      'kashly_backup_report_${DateTime.now().millisecondsSinceEpoch}.pdf';
   final file = File('${dir.path}/$fileName');
   await file.writeAsBytes(await pdf.save());
   return file;
@@ -102,24 +149,36 @@ Future<File> generateBackupReportPdf(List<BackupRecord> records) async {
 
 Future<File> exportBackupManifest(List<BackupRecord> records) async {
   final data = <List<dynamic>>[
-    ['ID', 'Type', 'Date', 'File Name', 'File Size (bytes)', 'Transaction Count', 'Status', 'Drive File ID', 'Notes', 'Checksum'],
+    [
+      'ID',
+      'Type',
+      'Date',
+      'File Name',
+      'File Size (bytes)',
+      'Transaction Count',
+      'Status',
+      'Drive File ID',
+      'Notes',
+      'Checksum'
+    ],
     ...records.map((r) => [
-      r.id,
-      r.type.name,
-      r.createdAt.toIso8601String(),
-      r.fileName,
-      r.fileSizeBytes,
-      r.transactionCount,
-      r.status.name,
-      r.driveFileId ?? '',
-      r.notes ?? '',
-      r.checksum ?? '',
-    ]),
+          r.id,
+          r.type.name,
+          r.createdAt.toIso8601String(),
+          r.fileName,
+          r.fileSizeBytes,
+          r.transactionCount,
+          r.status.name,
+          r.driveFileId ?? '',
+          r.notes ?? '',
+          r.checksum ?? '',
+        ]),
   ];
 
   final csv = const ListToCsvConverter().convert(data);
   final dir = await getApplicationDocumentsDirectory();
-  final fileName = 'kashly_backup_manifest_${DateTime.now().millisecondsSinceEpoch}.csv';
+  final fileName =
+      'kashly_backup_manifest_${DateTime.now().millisecondsSinceEpoch}.csv';
   final file = File('${dir.path}/$fileName');
   await file.writeAsString(csv);
   return file;

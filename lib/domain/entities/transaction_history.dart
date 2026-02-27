@@ -1,20 +1,59 @@
-import 'package:freezed_annotation/freezed_annotation.dart';
+class TransactionHistory {
+  final String id;
+  final String transactionId;
+  final String fieldName;
+  final String oldValue;
+  final String newValue;
+  final String changedBy;
+  final DateTime changedAt;
 
-part 'transaction_history.freezed.dart';
-part 'transaction_history.g.dart';
+  const TransactionHistory({
+    required this.id,
+    required this.transactionId,
+    required this.fieldName,
+    required this.oldValue,
+    required this.newValue,
+    required this.changedBy,
+    required this.changedAt,
+  });
 
-@freezed
-class TransactionHistory with _$TransactionHistory {
-  const factory TransactionHistory({
-    required String id,
-    required String transactionId,
-    required String fieldName,
-    required String oldValue,
-    required String newValue,
-    required String changedBy,
-    required DateTime changedAt,
-  }) = _TransactionHistory;
+  TransactionHistory copyWith({
+    String? id,
+    String? transactionId,
+    String? fieldName,
+    String? oldValue,
+    String? newValue,
+    String? changedBy,
+    DateTime? changedAt,
+  }) =>
+      TransactionHistory(
+        id: id ?? this.id,
+        transactionId: transactionId ?? this.transactionId,
+        fieldName: fieldName ?? this.fieldName,
+        oldValue: oldValue ?? this.oldValue,
+        newValue: newValue ?? this.newValue,
+        changedBy: changedBy ?? this.changedBy,
+        changedAt: changedAt ?? this.changedAt,
+      );
 
-  factory TransactionHistory.fromJson(Map<String, Object?> json) =>
-      _$TransactionHistoryFromJson(json);
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'transactionId': transactionId,
+        'fieldName': fieldName,
+        'oldValue': oldValue,
+        'newValue': newValue,
+        'changedBy': changedBy,
+        'changedAt': changedAt.toIso8601String(),
+      };
+
+  factory TransactionHistory.fromJson(Map<String, dynamic> json) =>
+      TransactionHistory(
+        id: json['id'] as String,
+        transactionId: json['transactionId'] as String,
+        fieldName: json['fieldName'] as String,
+        oldValue: json['oldValue'] as String,
+        newValue: json['newValue'] as String,
+        changedBy: json['changedBy'] as String,
+        changedAt: DateTime.parse(json['changedAt'] as String),
+      );
 }
