@@ -34,88 +34,103 @@ jobs:
           echo "keyAlias=${{ secrets.KEYSTORE_ALIAS }}" >> android/key.properties
           echo "storeFile=kashly-release.keystore" >> android/key.properties
 
-      # -------------------------------
-      # Capture logs but allow continuation
-      # -------------------------------
+      # -----------------------------
+      # Run steps + capture exit codes
+      # -----------------------------
 
       - name: Get Dependencies
         id: deps
-        continue-on-error: true
         run: |
-          flutter pub get | tee deps.log
+          set +e
+          flutter pub get > deps.log 2>&1
+          echo "EXIT_CODE=$?" >> $GITHUB_ENV
 
       - name: Analyze Project
         id: analyze
-        continue-on-error: true
         run: |
-          flutter analyze | tee analyze.log
-         
+          set +e
+          flutter analyze > analyze.log 2>&1
+          echo "ANALYZE_EXIT=$?" >> $GITHUB_ENV
+
       - name: Build APK
         id: build_apk
-        continue-on-error: true
         run: |
-          flutter build apk --release | tee build.log
+          set +e
+          flutter build apk --release > build.log 2>&1
+          echo "BUILD_EXIT=$?" >> $GITHUB_ENV
 
-      # -------------------------------
-      # Show logs ONLY if failure
-      # -------------------------------
+      # -----------------------------
+      # Summary Section
+      # -----------------------------
 
-      - name: Add Failure Logs To Summary
-        if: failure()
+      - name: Build Summary
         run: |
-          echo "## ❌ Build Failure Summary" >> $GITHUB_STEP_SUMMARY
+          echo "## 🧾 Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
 
-          if [ "${{ steps.deps.outcome }}" == "failure" ]; then
-            echo "### flutter pub get failed" >> $GITHUB_STEP_SUMMARY
+          FAILED=false
+
+          # Pub Get Failure
+          if [ "$EXIT_CODE" != "0" ]; then
+            FAILED=true
+            echo "### ❌ flutter pub get failed" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             cat deps.log >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "${{ steps.analyze.outcome }}" == "failure" ]; then
-            echo "### flutter analyze failed" >> $GITHUB_STEP_SUMMARY
+          # Analyze Failure
+          if [ "$ANALYZE_EXIT" != "0" ]; then
+            FAILED=true
+            echo "### ❌ flutter analyze failed" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             cat analyze.log >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
           fi
 
-          if [ "${{ steps.build_apk.outcome }}" == "failure" ]; then
-            echo "### flutter build release failed" >> $GITHUB_STEP_SUMMARY
+          # Build Failure
+          if [ "$BUILD_EXIT" != "0" ]; then
+            FAILED=true
+            echo "### ❌ flutter build release failed" >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
             cat build.log >> $GITHUB_STEP_SUMMARY
             echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
           fi
 
-          # Explicitly fail job if any failed
-          if [ "${{ steps.deps.outcome }}" == "failure" ] || \
-             [ "${{ steps.analyze.outcome }}" == "failure" ] || \
-             [ "${{ steps.build_apk.outcome }}" == "failure" ]; then
+          # If build succeeded, show SHA fingerprints
+          if [ "$BUILD_EXIT" == "0" ]; then
+            keytool -list -v \
+              -keystore android/app/kashly-release.keystore \
+              -alias "${{ secrets.KEYSTORE_ALIAS }}" \
+              -storepass "${{ secrets.KEYSTORE_PASSWORD }}" > fingerprint.txt
+
+            SHA1=$(grep "SHA1:" fingerprint.txt | head -n1 | sed 's/.*SHA1: //')
+            SHA256=$(grep "SHA256:" fingerprint.txt | head -n1 | sed 's/.*SHA256: //')
+
+            echo "## 🔐 Signing Certificate Fingerprints" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### SHA-1" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$SHA1" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+
+            echo "### SHA-256" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+            echo "$SHA256" >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+
+          # Fail job if anything failed
+          if [ "$FAILED" = true ]; then
             exit 1
           fi
 
-      # -------------------------------
-      # Only run these if build succeeded
-      # -------------------------------
-
-      - name: Extract SHA fingerprints
-        if: success()
-        run: |
-          keytool -list -v \
-            -keystore android/app/kashly-release.keystore \
-            -alias "${{ secrets.KEYSTORE_ALIAS }}" \
-            -storepass "${{ secrets.KEYSTORE_PASSWORD }}" > fingerprint.txt
-
-          SHA1=$(grep "SHA1:" fingerprint.txt | head -n1 | sed 's/.*SHA1: //')
-          SHA256=$(grep "SHA256:" fingerprint.txt | head -n1 | sed 's/.*SHA256: //')
-
-          echo "## 🔐 Signing Certificate Fingerprints" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**SHA-1**  \`$SHA1\`" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "**SHA-256**  \`$SHA256\`" >> $GITHUB_STEP_SUMMARY
-
       - name: Upload APK
-        if: success()
+        if: env.BUILD_EXIT == '0'
         uses: actions/upload-artifact@v4
         with:
           name: Kashly_V_
