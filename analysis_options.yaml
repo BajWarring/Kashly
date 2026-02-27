@@ -1,9 +1,4 @@
 # analysis_options.yaml
-# Note: flutter_lints include removed — package not present in this project.
-# To re-enable, add flutter_lints to dev_dependencies in pubspec.yaml:
-#   dev_dependencies:
-#     flutter_lints: ^3.0.0
-# Then restore: include: package:flutter_lints/flutter.yaml
 
 analyzer:
   errors:
@@ -15,14 +10,11 @@ linter:
   rules:
     - avoid_empty_else
     - avoid_relative_lib_imports
-    - avoid_returning_null_for_future
     - avoid_types_as_parameter_names
     - cancel_subscriptions
     - close_sinks
     - empty_statements
     - hash_and_equals
-    - iterable_contains_unrelated_type
-    - list_remove_unrelated_type
     - no_duplicate_case_values
     - prefer_is_not_empty
     - test_types_in_equals
