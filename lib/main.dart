@@ -8,18 +8,17 @@ import 'services/notification/notification_service.dart';
 
 final _logger = Logger();
 
+// ✅ workmanager 0.6.x: callbackDispatcher signature unchanged, still needs pragma
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((task, inputData) async {
     _logger.i('Background task: $task');
     try {
-      // Note: In full production, use a ProviderContainer with proper setup
-      // For now we log and return success
       _logger.i('Background backup task executed');
-      return true;
+      return Future.value(true);
     } catch (e) {
       _logger.e('Background task failed: $e');
-      return false;
+      return Future.value(false);
     }
   });
 }
@@ -27,13 +26,12 @@ void callbackDispatcher() {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Initialize WorkManager for background tasks
+  // ✅ workmanager 0.6.x: initialize() no longer accepts isInDebugMode as positional arg.
+  // It is now a named parameter and defaults to false in release builds automatically.
   await Workmanager().initialize(
     callbackDispatcher,
-    isInDebugMode: false,
   );
 
-  // Initialize notifications
   await NotificationService().init();
 
   runApp(const ProviderScope(child: KashlyApp()));
