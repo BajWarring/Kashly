@@ -48,8 +48,8 @@ class KashlyApp extends StatelessWidget {
             fontWeight: FontWeight.w800,
           ),
         ),
-        // Make default card styling match our custom theme
-        cardTheme: CardTheme(
+        // FIXED: Changed CardTheme to CardThemeData for modern Flutter
+        cardTheme: CardThemeData(
           color: cardBg,
           elevation: 0,
           shape: RoundedRectangleBorder(
