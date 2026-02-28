@@ -2,7 +2,9 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
+
 import 'models/book.dart';
+import 'models/entry.dart';
 import 'models/edit_log.dart';
 import 'models/field_option.dart';
 
@@ -19,7 +21,6 @@ class DatabaseHelper {
   }
 
   Future<Database> _initDB(String filePath) async {
-    // Stores the database in the system's hidden document directory
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
     final path = join(documentsDirectory.path, filePath);
 
@@ -30,7 +31,7 @@ class DatabaseHelper {
     );
   }
 
-    Future _createDB(Database db, int version) async {
+  Future _createDB(Database db, int version) async {
     // 1. Cashbooks Table
     await db.execute('''
       CREATE TABLE cashbooks (
@@ -45,7 +46,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // 2. Updated Entries Table
+    // 2. Entries Table
     await db.execute('''
       CREATE TABLE entries (
         id TEXT PRIMARY KEY,
@@ -62,7 +63,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // 3. New Edit Logs Table
+    // 3. Edit Logs Table
     await db.execute('''
       CREATE TABLE edit_logs (
         id TEXT PRIMARY KEY,
@@ -74,7 +75,8 @@ class DatabaseHelper {
         FOREIGN KEY (entryId) REFERENCES entries (id) ON DELETE CASCADE
       )
     ''');
-    // 4. Fields Option Buttons
+
+    // 4. Field Options Table (For Categories, Payment Methods, etc.)
     await db.execute('''
       CREATE TABLE field_options (
         id TEXT PRIMARY KEY,
@@ -86,9 +88,9 @@ class DatabaseHelper {
     ''');
   }
 
-
-  // --- CRUD Operations for Cashbooks ---
-
+  // ==========================================
+  // CASHBOOKS
+  // ==========================================
   Future<void> insertBook(Book book) async {
     final db = await instance.database;
     await db.insert('cashbooks', book.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
@@ -102,96 +104,74 @@ class DatabaseHelper {
 
   Future<void> updateBook(Book book) async {
     final db = await instance.database;
-    await db.update(
-      'cashbooks',
-      book.toMap(),
-      where: 'id = ?',
-      whereArgs: [book.id],
-    );
+    await db.update('cashbooks', book.toMap(), where: 'id = ?', whereArgs: [book.id]);
   }
 
   Future<void> deleteBook(String id) async {
     final db = await instance.database;
-    await db.delete(
-      'cashbooks',
-      where: 'id = ?',
-      whereArgs: [id],
-    );
+    await db.delete('cashbooks', where: 'id = ?', whereArgs: [id]);
   }
- // --- CRUD Operations for Entries ---
 
-  // Fetch all entries for a specific cashbook
+  // ==========================================
+  // ENTRIES
+  // ==========================================
   Future<List<Entry>> getEntriesForBook(String bookId) async {
     final db = await instance.database;
-    final result = await db.query(
-      'entries',
-      where: 'bookId = ?',
-      whereArgs: [bookId],
-      orderBy: 'timestamp DESC', // Shows newest entries at the top
-    );
+    final result = await db.query('entries', where: 'bookId = ?', whereArgs: [bookId], orderBy: 'timestamp DESC');
     return result.map((map) => Entry.fromMap(map)).toList();
   }
 
-  // Insert a new entry
+  Future<Entry?> getEntryById(String id) async {
+    final db = await instance.database;
+    final result = await db.query('entries', where: 'id = ?', whereArgs: [id]);
+    if (result.isNotEmpty) return Entry.fromMap(result.first);
+    return null;
+  }
+
   Future<void> insertEntry(Entry entry) async {
     final db = await instance.database;
-    await db.insert(
-      'entries',
-      entry.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('entries', entry.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
-  
-  // Update an existing entry
+
   Future<void> updateEntry(Entry entry) async {
     final db = await instance.database;
-    await db.update(
-      'entries',
-      entry.toMap(),
-      where: 'id = ?',
-      whereArgs: [entry.id],
-    );
+    await db.update('entries', entry.toMap(), where: 'id = ?', whereArgs: [entry.id]);
   }
 
-    
-  // --- CRUD Operations for Edit Logs ---
+  Future<void> deleteEntry(String id) async {
+    final db = await instance.database;
+    await db.delete('entries', where: 'id = ?', whereArgs: [id]);
+  }
 
+  // ==========================================
+  // EDIT LOGS
+  // ==========================================
   Future<List<EditLog>> getLogsForEntry(String entryId) async {
     final db = await instance.database;
-    final result = await db.query(
-      'edit_logs',
-      where: 'entryId = ?',
-      whereArgs: [entryId],
-      orderBy: 'timestamp DESC', // Newest edits first
-    );
+    final result = await db.query('edit_logs', where: 'entryId = ?', whereArgs: [entryId], orderBy: 'timestamp DESC');
     return result.map((map) => EditLog.fromMap(map)).toList();
   }
 
   Future<void> insertEditLog(EditLog log) async {
     final db = await instance.database;
-    await db.insert(
-      'edit_logs',
-      log.toMap(),
-      conflictAlgorithm: ConflictAlgorithm.replace,
-    );
+    await db.insert('edit_logs', log.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
-    
-  // --- CRUD for Field Options ---
-  
-  // Gets the top 5 most recently/heavily used options
+
+  // ==========================================
+  // FIELD OPTIONS (Categories, Payments, etc.)
+  // ==========================================
   Future<List<FieldOption>> getTopOptions(String fieldName, {int limit = 5}) async {
     final db = await instance.database;
     final result = await db.query(
       'field_options',
       where: 'fieldName = ?',
       whereArgs: [fieldName],
-      orderBy: 'lastUsed DESC, usageCount DESC', // Sorts by recent and most used
+      orderBy: 'lastUsed DESC, usageCount DESC',
       limit: limit,
     );
     return result.map((map) => FieldOption.fromMap(map)).toList();
   }
 
-  // Gets ALL options for the sub-page
   Future<List<FieldOption>> getAllOptions(String fieldName) async {
     final db = await instance.database;
     final result = await db.query('field_options', where: 'fieldName = ?', whereArgs: [fieldName], orderBy: 'value ASC');
@@ -203,7 +183,16 @@ class DatabaseHelper {
     await db.insert('field_options', option.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  // Call this when an entry is saved to boost the option's ranking
+  Future<void> updateFieldOption(FieldOption option) async {
+    final db = await instance.database;
+    await db.update('field_options', option.toMap(), where: 'id = ?', whereArgs: [option.id]);
+  }
+
+  Future<void> deleteFieldOption(String id) async {
+    final db = await instance.database;
+    await db.delete('field_options', where: 'id = ?', whereArgs: [id]);
+  }
+
   Future<void> recordOptionUsage(String fieldName, String value) async {
     final db = await instance.database;
     final existing = await db.query('field_options', where: 'fieldName = ? AND value = ?', whereArgs: [fieldName, value]);
@@ -214,7 +203,6 @@ class DatabaseHelper {
       opt.lastUsed = DateTime.now().millisecondsSinceEpoch;
       await db.update('field_options', opt.toMap(), where: 'id = ?', whereArgs: [opt.id]);
     } else {
-      // If it doesn't exist, create it automatically
       final newOpt = FieldOption(
         id: 'OPT-${DateTime.now().millisecondsSinceEpoch}',
         fieldName: fieldName,
