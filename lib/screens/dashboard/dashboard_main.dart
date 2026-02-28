@@ -3,8 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/models/book.dart';
 import '../../core/database_helper.dart';
 import '../../core/theme.dart'; 
-import '../cashbooks/cashbook_screen.dart'; // Fixed import
-import '../cashbooks/entry_details_screen.dart'; // Fixed import
+import '../cashbooks/cashbook_screen.dart'; 
 import 'widgets/add_book_sheet.dart'; 
 
 class DashboardScreen extends StatefulWidget {
@@ -41,11 +40,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
   Future<void> _addBook(Book book) async {
     await DatabaseHelper.instance.insertBook(book);
-    _refreshBooks();
-  }
-
-  Future<void> _deleteBook(String id) async {
-    await DatabaseHelper.instance.deleteBook(id);
     _refreshBooks();
   }
 
@@ -134,8 +128,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                 onSelected: (val) {
                   setState(() {
-                    if (val == 'asc_desc') _sortAscending = !_sortAscending;
-                    else _filterType = val;
+                    if (val == 'asc_desc') {
+                      _sortAscending = !_sortAscending;
+                    } else {
+                      _filterType = val;
+                    }
                   });
                 },
                 itemBuilder: (context) => [
