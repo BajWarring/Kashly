@@ -7,6 +7,7 @@ import '../../core/models/field_option.dart';
 import '../../core/database_helper.dart';
 import '../../core/theme.dart';
 import 'manage_options_screen.dart'; // We will build this next
+import '../../core/models/edit_log.dart';
 
 class AddEntryScreen extends StatefulWidget {
   final Book book;
@@ -95,10 +96,13 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     }
   }
 
+    
+  // Saves Entry New/Upate
   Future<void> _saveEntry({required bool addNew}) async {
     if (_amountCtrl.text.isEmpty) return;
 
     final double amount = double.tryParse(_amountCtrl.text) ?? 0.0;
+    int now = DateTime.now().millisecondsSinceEpoch;
     
     final entry = Entry(
       id: isEdit ? widget.existingEntry!.id : 'ENT-${Random().nextInt(999999)}',
@@ -108,27 +112,53 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       note: _noteCtrl.text.trim(),
       category: _selectedCategory,
       paymentMethod: _selectedPaymentMethod,
-      timestamp: isEdit ? widget.existingEntry!.timestamp : DateTime.now().millisecondsSinceEpoch,
+      timestamp: isEdit ? widget.existingEntry!.timestamp : now,
     );
 
-    await DatabaseHelper.instance.insertEntry(entry);
+    if (isEdit) {
+      // 1. Check for changes and log them
+      final old = widget.existingEntry!;
+      
+      Future<void> logIfChanged(String field, String oldVal, String newVal) async {
+        if (oldVal != newVal) {
+          await DatabaseHelper.instance.insertEditLog(EditLog(
+            id: 'LOG-${Random().nextInt(999999)}',
+            entryId: old.id,
+            field: field,
+            oldValue: oldVal.isEmpty ? 'Empty' : oldVal,
+            newValue: newVal.isEmpty ? 'Empty' : newVal,
+            timestamp: now,
+          ));
+        }
+      }
+
+      await logIfChanged('Amount', old.amount.toString(), amount.toString());
+      await logIfChanged('Category', old.category, _selectedCategory);
+      await logIfChanged('Payment Method', old.paymentMethod, _selectedPaymentMethod);
+      await logIfChanged('Remark', old.note, _noteCtrl.text.trim());
+
+      // 2. Update the actual entry in the database
+      await DatabaseHelper.instance.updateEntry(entry);
+      
+    } else {
+      // It's a brand new entry, just insert it normally
+      await DatabaseHelper.instance.insertEntry(entry);
+    }
     
     // Boost the ranking of the used category and payment method
     await DatabaseHelper.instance.recordOptionUsage('Category', _selectedCategory);
     await DatabaseHelper.instance.recordOptionUsage('Payment Method', _selectedPaymentMethod);
 
-    // Update book balance logic goes here (omitted for brevity, same as before)
-
     if (addNew) {
-      // Clear form for next entry
       _amountCtrl.clear();
       _noteCtrl.clear();
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Saved! Add next entry.')));
-      _loadTopOptions(); // Refresh rankings
+      _loadTopOptions(); 
     } else {
-      Navigator.pop(context, true); // Return to cashbook
+      Navigator.pop(context, true); 
     }
   }
+
 
   // Reusable widget for building the radio chips
   Widget _buildOptionsRow(String title, String fieldName, List<FieldOption> options, String selectedValue, Function(String) onSelect) {
