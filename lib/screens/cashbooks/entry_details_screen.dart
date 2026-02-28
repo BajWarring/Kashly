@@ -58,7 +58,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
       final updatedEntry = await DatabaseHelper.instance.getEntryById(_currentEntry.id);
       if (updatedEntry != null) {
         setState(() => _currentEntry = updatedEntry);
-        _loadEditHistory(); // Refresh logs to show the new edit
+        _loadEditHistory(); 
       }
     }
   }
@@ -74,13 +74,16 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: danger),
             onPressed: () async {
-              // Note: Make sure you have a deleteEntry function in DatabaseHelper!
-              // await DatabaseHelper.instance.deleteEntry(_currentEntry.id);
+              // 1. Delete the entry from the database
+              await DatabaseHelper.instance.deleteEntry(_currentEntry.id);
               
-              // Update balance logic here...
+              // 2. Reverse the amount from the Book's balance
+              double amountToReverse = _currentEntry.type == 'in' ? -_currentEntry.amount : _currentEntry.amount;
+              widget.book.balance += amountToReverse;
+              await DatabaseHelper.instance.updateBook(widget.book);
               
-              Navigator.pop(ctx); 
-              Navigator.pop(context); 
+              Navigator.pop(ctx); // Close dialog
+              Navigator.pop(context); // Go back to cashbook
             },
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
           )
@@ -132,7 +135,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          // 1. MAIN CARD
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderCol)),
@@ -141,7 +143,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
               children: [
                 _buildDetailRow('ENTRY TYPE', typeText, valueColor: typeColor, isLarge: true),
                 const Divider(height: 24, color: borderCol),
-                _buildDetailRow('AMOUNT', '${isOut ? "-" : "+"} ₹${_currentEntry.amount}', valueColor: typeColor, isLarge: true),
+                _buildDetailRow('AMOUNT', '${isOut ? "-" : "+"} ₹${_currentEntry.amount.toStringAsFixed(2)}', valueColor: typeColor, isLarge: true),
                 const Divider(height: 24, color: borderCol),
                 _buildDetailRow('DATE & TIME', _formatDateTime(_currentEntry.timestamp)),
                 const Divider(height: 24, color: borderCol),
@@ -155,7 +157,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
           ),
           const SizedBox(height: 16),
 
-          // 2. CREATION CARD
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
@@ -165,8 +166,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    // If there's no edit history, the creation time is the timestamp.
-                    // If there IS edit history, we would ideally fetch the very first log timestamp.
                     'Entry modified on\n${_formatDateTime(_currentEntry.timestamp)}',
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textMuted, height: 1.4),
                   ),
@@ -176,7 +175,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
           ),
           const SizedBox(height: 32),
 
-          // 3. EDIT HISTORY CARDS
           if (_isLoadingLogs)
              const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: accent)))
           else if (editHistory.isNotEmpty) ...[
