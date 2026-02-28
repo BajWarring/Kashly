@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // Added missing import
+import 'package:intl/intl.dart';
 
 import '../../core/models/book.dart';
 import '../../core/models/entry.dart';
-import '../../core/models/edit_log.dart'; // Added missing import
+import '../../core/models/edit_log.dart';
 import '../../core/database_helper.dart';
 import '../../core/theme.dart';
 import 'add_entry_screen.dart';
@@ -33,7 +33,9 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
   Future<void> _loadEditHistory() async {
     setState(() => _isLoadingLogs = true);
     final logs = await DatabaseHelper.instance.getLogsForEntry(_currentEntry.id);
+    
     if (!mounted) return;
+    
     setState(() {
       editHistory = logs;
       _isLoadingLogs = false;
@@ -57,7 +59,9 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
 
     if (didUpdate == true) {
       final updatedEntry = await DatabaseHelper.instance.getEntryById(_currentEntry.id);
-      if (!mounted) return; // Fixed async gap
+      
+      if (!mounted) return; 
+      
       if (updatedEntry != null) {
         setState(() => _currentEntry = updatedEntry);
         _loadEditHistory(); 
@@ -65,8 +69,8 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     }
   }
 
-        void _deleteEntry() async {
-    // 1. Capture the Navigator synchronously BEFORE any async gaps!
+  void _deleteEntry() async {
+    // 1. Capture the Navigator synchronously BEFORE any async gaps
     final navigator = Navigator.of(context);
 
     // 2. Wait for the dialog to return a true/false result
@@ -77,12 +81,12 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
         content: const Text('Are you sure you want to permanently delete this transaction?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(ctx, false), // Pops dialog synchronously
+            onPressed: () => Navigator.pop(ctx, false), 
             child: const Text('Cancel')
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: danger),
-            onPressed: () => Navigator.pop(ctx, true), // Pops dialog synchronously and returns true
+            onPressed: () => Navigator.pop(ctx, true), 
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
           )
         ],
@@ -99,11 +103,38 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
       widget.book.balance += amountToReverse;
       await DatabaseHelper.instance.updateBook(widget.book);
       
-      // 4. Use the captured navigator! The linter loves this.
+      // 4. Use the captured navigator!
       navigator.pop(); 
     }
   }
 
+  // ---> THIS IS THE METHOD THAT GOT ACCIDENTALLY DELETED <---
+  Widget _buildDetailRow(String label, String value, {Color? valueColor, bool isLarge = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 2,
+            child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textMuted)),
+          ),
+          Expanded(
+            flex: 3,
+            child: Text(
+              value, 
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: isLarge ? 18 : 14, 
+                fontWeight: isLarge ? FontWeight.w900 : FontWeight.bold, 
+                color: valueColor ?? textDark
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -168,7 +199,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
               padding: EdgeInsets.only(left: 8.0, bottom: 12.0),
               child: Text('EDIT HISTORY', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textLight, letterSpacing: 1.2)),
             ),
-            // Explicitly typing 'EditLog log' fixes the nullability analyzer error
             ...editHistory.map((EditLog log) => Container(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
