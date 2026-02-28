@@ -97,6 +97,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       category: _selectedCategory,
       paymentMethod: _selectedPaymentMethod,
       timestamp: isEdit ? widget.existingEntry!.timestamp : now,
+      linkedEntryId: isEdit ? widget.existingEntry!.linkedEntryId : null,
+      customFields: isEdit ? widget.existingEntry!.customFields : {},
     );
 
     if (isEdit) {
