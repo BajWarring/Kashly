@@ -3,6 +3,7 @@ import 'package:path/path.dart';
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'models/book.dart';
+import 'models/edit_log.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -126,6 +127,28 @@ class DatabaseHelper {
     await db.insert(
       'entries',
       entry.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
+    
+  // --- CRUD Operations for Edit Logs ---
+
+  Future<List<EditLog>> getLogsForEntry(String entryId) async {
+    final db = await instance.database;
+    final result = await db.query(
+      'edit_logs',
+      where: 'entryId = ?',
+      whereArgs: [entryId],
+      orderBy: 'timestamp DESC', // Newest edits first
+    );
+    return result.map((map) => EditLog.fromMap(map)).toList();
+  }
+
+  Future<void> insertEditLog(EditLog log) async {
+    final db = await instance.database;
+    await db.insert(
+      'edit_logs',
+      log.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
