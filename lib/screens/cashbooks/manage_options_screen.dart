@@ -78,6 +78,7 @@ class _ManageOptionsScreenState extends State<ManageOptionsScreen> {
                 await DatabaseHelper.instance.insertOption(newOpt);
               }
 
+              if (!ctx.mounted) return; // Added safe check for the dialog context
               Navigator.pop(ctx);
               _loadOptions();
             },
@@ -102,6 +103,8 @@ class _ManageOptionsScreenState extends State<ManageOptionsScreen> {
             style: ElevatedButton.styleFrom(backgroundColor: danger),
             onPressed: () async {
               await DatabaseHelper.instance.deleteFieldOption(option.id);
+              
+              if (!ctx.mounted) return; // Added safe check for the dialog context
               Navigator.pop(ctx);
               _loadOptions();
             },
@@ -111,6 +114,7 @@ class _ManageOptionsScreenState extends State<ManageOptionsScreen> {
       )
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
