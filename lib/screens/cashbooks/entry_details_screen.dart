@@ -1,45 +1,29 @@
-import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
-
-import '../../core/models/entry.dart';
-import '../../core/theme.dart'; // Make sure your colors like textDark, appBg, accent are here
-
-// --- MOCK DATA MODEL FOR EDIT HISTORY ---
-// We will move this to your real models folder later
-class EditLog {
-  final String field;
-  final String oldValue;
-  final String newValue;
-  final int timestamp;
-
-  EditLog({required this.field, required this.oldValue, required this.newValue, required this.timestamp});
-}
-
-class EntryDetailsScreen extends StatefulWidget {
-  final Entry entry;
-
-  const EntryDetailsScreen({super.key, required this.entry});
-
-  @override
-  State<EntryDetailsScreen> createState() => _EntryDetailsScreenState();
-}
+import '../../core/models/edit_log.dart';
+import '../../core/database_helper.dart'; 
 
 class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
-  // Mock data for UI demonstration
-  final String category = "Office Supplies";
-  final String paymentMethod = "Credit Card";
-  final int createdAt = DateTime.now().subtract(const Duration(days: 2)).millisecondsSinceEpoch;
-  
-  // Mock edit history (sorted descending by default)
-  final List<EditLog> editHistory = [
-    EditLog(field: 'Amount', oldValue: '500.0', newValue: '550.0', timestamp: DateTime.now().subtract(const Duration(hours: 2)).millisecondsSinceEpoch),
-    EditLog(field: 'Remark', oldValue: 'Pens', newValue: 'Pens and Paper', timestamp: DateTime.now().subtract(const Duration(hours: 2)).millisecondsSinceEpoch),
-    EditLog(field: 'Category', oldValue: 'Misc', newValue: 'Office Supplies', timestamp: DateTime.now().subtract(const Duration(days: 1)).millisecondsSinceEpoch),
-  ];
+  List<EditLog> editHistory = [];
+  bool _isLoadingLogs = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadEditHistory();
+  }
+
+  Future<void> _loadEditHistory() async {
+    setState(() => _isLoadingLogs = true);
+    final logs = await DatabaseHelper.instance.getLogsForEntry(widget.entry.id);
+    setState(() {
+      editHistory = logs;
+      _isLoadingLogs = false;
+    });
+  }
 
   String _formatDateTime(int ms) {
     return DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.fromMillisecondsSinceEpoch(ms));
   }
+  
 
   void _deleteEntry() {
     showDialog(
