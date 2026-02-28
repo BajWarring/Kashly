@@ -29,7 +29,6 @@ class _CashbookScreenState extends State<CashbookScreen> {
   Future<void> _loadEntries() async {
     setState(() => _isLoading = true);
     
-    // Fetch real data from SQLite
     final data = await DatabaseHelper.instance.getEntriesForBook(widget.book.id);
     
     setState(() {
@@ -39,7 +38,6 @@ class _CashbookScreenState extends State<CashbookScreen> {
   }
 
   void _openAddEntryScreen(String type) async {
-    // Navigate to the full-screen form
     await Navigator.push(
       context,
       MaterialPageRoute(
@@ -49,7 +47,7 @@ class _CashbookScreenState extends State<CashbookScreen> {
         ),
       ),
     );
-    // Refresh the list when returning from the add screen
+    // Refresh the list and the balance when returning
     _loadEntries();
   }
 
@@ -92,7 +90,6 @@ class _CashbookScreenState extends State<CashbookScreen> {
                     child: ListTile(
                       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       onTap: () {
-                        // Navigate to details screen when an entry is tapped
                         Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -101,7 +98,7 @@ class _CashbookScreenState extends State<CashbookScreen> {
                               book: widget.book,
                             ),
                           ),
-                        ).then((_) => _loadEntries()); // Refresh list when returning
+                        ).then((_) => _loadEntries()); 
                       },
                       title: Text(
                         entry.category.isNotEmpty ? entry.category : 'Uncategorized',
