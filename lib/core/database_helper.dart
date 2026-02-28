@@ -28,8 +28,8 @@ class DatabaseHelper {
     );
   }
 
-  Future _createDB(Database db, int version) async {
-    // Create Cashbooks Table
+    Future _createDB(Database db, int version) async {
+    // 1. Cashbooks Table
     await db.execute('''
       CREATE TABLE cashbooks (
         id TEXT PRIMARY KEY,
@@ -43,7 +43,7 @@ class DatabaseHelper {
       )
     ''');
 
-    // Create Entries Table (For later use inside the cashbook)
+    // 2. Updated Entries Table
     await db.execute('''
       CREATE TABLE entries (
         id TEXT PRIMARY KEY,
@@ -51,11 +51,29 @@ class DatabaseHelper {
         type TEXT NOT NULL, 
         amount REAL NOT NULL,
         note TEXT,
+        category TEXT NOT NULL,
+        paymentMethod TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
+        linkedEntryId TEXT,
+        customFields TEXT,
         FOREIGN KEY (bookId) REFERENCES cashbooks (id) ON DELETE CASCADE
       )
     ''');
+
+    // 3. New Edit Logs Table
+    await db.execute('''
+      CREATE TABLE edit_logs (
+        id TEXT PRIMARY KEY,
+        entryId TEXT NOT NULL,
+        field TEXT NOT NULL,
+        oldValue TEXT NOT NULL,
+        newValue TEXT NOT NULL,
+        timestamp INTEGER NOT NULL,
+        FOREIGN KEY (entryId) REFERENCES entries (id) ON DELETE CASCADE
+      )
+    ''');
   }
+
 
   // --- CRUD Operations for Cashbooks ---
 
