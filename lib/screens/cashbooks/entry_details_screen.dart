@@ -1,19 +1,38 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+
+import '../../core/models/book.dart';
+import '../../core/models/entry.dart';
 import '../../core/models/edit_log.dart';
-import '../../core/database_helper.dart'; 
+import '../../core/database_helper.dart';
+import '../../core/theme.dart';
+import 'add_entry_screen.dart';
+
+class EntryDetailsScreen extends StatefulWidget {
+  final Entry entry;
+  final Book book;
+
+  const EntryDetailsScreen({super.key, required this.entry, required this.book});
+
+  @override
+  State<EntryDetailsScreen> createState() => _EntryDetailsScreenState();
+}
 
 class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
+  late Entry _currentEntry;
   List<EditLog> editHistory = [];
   bool _isLoadingLogs = true;
 
   @override
   void initState() {
     super.initState();
+    _currentEntry = widget.entry;
     _loadEditHistory();
   }
 
   Future<void> _loadEditHistory() async {
     setState(() => _isLoadingLogs = true);
-    final logs = await DatabaseHelper.instance.getLogsForEntry(widget.entry.id);
+    final logs = await DatabaseHelper.instance.getLogsForEntry(_currentEntry.id);
     setState(() {
       editHistory = logs;
       _isLoadingLogs = false;
@@ -23,7 +42,26 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
   String _formatDateTime(int ms) {
     return DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.fromMillisecondsSinceEpoch(ms));
   }
-  
+
+  void _openEditEditor() async {
+    final bool? didUpdate = await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddEntryScreen(
+          book: widget.book,
+          existingEntry: _currentEntry,
+        ),
+      ),
+    );
+
+    if (didUpdate == true) {
+      final updatedEntry = await DatabaseHelper.instance.getEntryById(_currentEntry.id);
+      if (updatedEntry != null) {
+        setState(() => _currentEntry = updatedEntry);
+        _loadEditHistory(); // Refresh logs to show the new edit
+      }
+    }
+  }
 
   void _deleteEntry() {
     showDialog(
@@ -35,10 +73,14 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
           TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: danger),
-            onPressed: () {
-              // TODO: Delete from SQLite database
-              Navigator.pop(ctx); // Close dialog
-              Navigator.pop(context); // Go back to cashbook
+            onPressed: () async {
+              // Note: Make sure you have a deleteEntry function in DatabaseHelper!
+              // await DatabaseHelper.instance.deleteEntry(_currentEntry.id);
+              
+              // Update balance logic here...
+              
+              Navigator.pop(ctx); 
+              Navigator.pop(context); 
             },
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
           )
@@ -47,76 +89,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     );
   }
 
-  void _showShareOptions() {
-    bool includeHistory = false;
-
-    showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => StatefulBuilder(
-        builder: (context, setStateSheet) => Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              const Text('Share Entry', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textDark)),
-              const SizedBox(height: 16),
-              
-              // Option 1: Without History (Default)
-              RadioListTile<bool>(
-                value: false,
-                groupValue: includeHistory,
-                onChanged: (val) => setStateSheet(() => includeHistory = val!),
-                title: const Text('Standard Share', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Share basic entry details only.'),
-                activeColor: accent,
-                contentPadding: EdgeInsets.zero,
-              ),
-              
-              // Option 2: With History
-              RadioListTile<bool>(
-                value: true,
-                groupValue: includeHistory,
-                onChanged: (val) => setStateSheet(() => includeHistory = val!),
-                title: const Text('Include Edit History', style: TextStyle(fontWeight: FontWeight.bold)),
-                subtitle: const Text('Share full details including all past edits.'),
-                activeColor: accent,
-                contentPadding: EdgeInsets.zero,
-              ),
-              
-              const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () {
-                    // TODO: Implement actual sharing logic
-                    Navigator.pop(ctx);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Sharing ${includeHistory ? "with" : "without"} history...')));
-                  },
-                  icon: const Icon(Icons.share, color: Colors.white),
-                  label: const Text('Share Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: accent,
-                    padding: const EdgeInsets.symmetric(vertical: 16),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                  ),
-                ),
-              )
-            ],
-          ),
-        ),
-      )
-    );
-  }
-
-  void _openEditEditor() {
-    // TODO: Open an edit screen pre-filled with this entry's data
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Edit editor opening...')));
-  }
-
-  // Helper widget to build rows inside cards
   Widget _buildDetailRow(String label, String value, {Color? valueColor, bool isLarge = false}) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 8.0),
@@ -146,7 +118,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final bool isOut = widget.entry.type == 'out';
+    final bool isOut = _currentEntry.type == 'out';
     final Color typeColor = isOut ? danger : success;
     final String typeText = isOut ? 'CASH OUT (-)' : 'CASH IN (+)';
 
@@ -154,17 +126,13 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
       appBar: AppBar(
         title: const Text('Entry Details'),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.delete_outline, color: danger),
-            onPressed: _deleteEntry,
-          ),
+          IconButton(icon: const Icon(Icons.delete_outline, color: danger), onPressed: _deleteEntry),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16.0),
         children: [
-          
-          // 1. MAIN CARD (Big Rectangle)
+          // 1. MAIN CARD
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderCol)),
@@ -173,38 +141,21 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
               children: [
                 _buildDetailRow('ENTRY TYPE', typeText, valueColor: typeColor, isLarge: true),
                 const Divider(height: 24, color: borderCol),
-                _buildDetailRow('AMOUNT', '${isOut ? "-" : "+"} ${widget.entry.amount}', valueColor: typeColor, isLarge: true),
+                _buildDetailRow('AMOUNT', '${isOut ? "-" : "+"} ₹${_currentEntry.amount}', valueColor: typeColor, isLarge: true),
                 const Divider(height: 24, color: borderCol),
-                _buildDetailRow('DATE & TIME', _formatDateTime(widget.entry.timestamp)),
+                _buildDetailRow('DATE & TIME', _formatDateTime(_currentEntry.timestamp)),
                 const Divider(height: 24, color: borderCol),
-                _buildDetailRow('CATEGORY', category),
+                _buildDetailRow('CATEGORY', _currentEntry.category.isEmpty ? 'N/A' : _currentEntry.category),
                 const Divider(height: 24, color: borderCol),
-                _buildDetailRow('PAYMENT METHOD', paymentMethod),
+                _buildDetailRow('PAYMENT METHOD', _currentEntry.paymentMethod.isEmpty ? 'N/A' : _currentEntry.paymentMethod),
                 const Divider(height: 24, color: borderCol),
-                _buildDetailRow('REMARK', widget.entry.note.isEmpty ? 'N/A' : widget.entry.note),
+                _buildDetailRow('REMARK', _currentEntry.note.isEmpty ? 'N/A' : _currentEntry.note),
               ],
             ),
           ),
           const SizedBox(height: 16),
 
-          // 2. ADDITIONAL FIELDS CARD
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderCol)),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                const Text('ADDITIONAL DETAILS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textMuted, letterSpacing: 1.2)),
-                const SizedBox(height: 12),
-                _buildDetailRow('Reference No.', 'REF-90210'), // Dummy additional field
-                const Divider(height: 24, color: borderCol),
-                _buildDetailRow('Billed To', 'Client Alpha'), // Dummy additional field
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-
-          // 3. CREATION CARD
+          // 2. CREATION CARD
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
@@ -214,7 +165,9 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    'Entry first created on\n${_formatDateTime(createdAt)}',
+                    // If there's no edit history, the creation time is the timestamp.
+                    // If there IS edit history, we would ideally fetch the very first log timestamp.
+                    'Entry modified on\n${_formatDateTime(_currentEntry.timestamp)}',
                     style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textMuted, height: 1.4),
                   ),
                 ),
@@ -223,7 +176,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
           ),
           const SizedBox(height: 32),
 
-         // 4. EDIT HISTORY CARDS
+          // 3. EDIT HISTORY CARDS
           if (_isLoadingLogs)
              const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: accent)))
           else if (editHistory.isNotEmpty) ...[
@@ -275,17 +228,9 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
         ],
       ),
 
-      // 5. BOTTOM FAB BUTTONS
       floatingActionButton: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          FloatingActionButton(
-            heroTag: 'share_fab',
-            onPressed: _showShareOptions,
-            backgroundColor: Colors.white,
-            child: const Icon(Icons.share, color: textDark),
-          ),
-          const SizedBox(width: 16),
           FloatingActionButton.extended(
             heroTag: 'edit_fab',
             onPressed: _openEditEditor,
