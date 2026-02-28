@@ -4,15 +4,15 @@ import 'dart:math';
 import '../../core/models/book.dart';
 import '../../core/models/entry.dart';
 import '../../core/models/field_option.dart';
+import '../../core/models/edit_log.dart';
 import '../../core/database_helper.dart';
 import '../../core/theme.dart';
-import 'manage_options_screen.dart'; // We will build this next
-import '../../core/models/edit_log.dart';
+import 'manage_options_screen.dart';
 
 class AddEntryScreen extends StatefulWidget {
   final Book book;
-  final Entry? existingEntry; // If null, it's a new entry. If provided, it's an edit.
-  final String initialType; // 'in' or 'out'
+  final Entry? existingEntry; 
+  final String initialType; 
 
   const AddEntryScreen({super.key, required this.book, this.existingEntry, this.initialType = 'in'});
 
@@ -50,44 +50,30 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     final cats = await DatabaseHelper.instance.getTopOptions('Category');
     final methods = await DatabaseHelper.instance.getTopOptions('Payment Method');
     
-    // Fallback defaults if database is completely empty
     if (cats.isEmpty) {
       await DatabaseHelper.instance.insertOption(FieldOption(id: 'c1', fieldName: 'Category', value: 'Sales', lastUsed: 0));
-      await DatabaseHelper.instance.insertOption(FieldOption(id: 'c2', fieldName: 'Category', value: 'Supplies', lastUsed: 0));
     }
     if (methods.isEmpty) {
       await DatabaseHelper.instance.insertOption(FieldOption(id: 'p1', fieldName: 'Payment Method', value: 'Cash', lastUsed: 0));
-      await DatabaseHelper.instance.insertOption(FieldOption(id: 'p2', fieldName: 'Payment Method', value: 'Bank Transfer', lastUsed: 0));
     }
 
     setState(() {
-      _topCategories = cats.isEmpty ? [] : cats; // Will reload properly on next state update
-      _topPaymentMethods = methods.isEmpty ? [] : methods;
+      _topCategories = cats;
+      _topPaymentMethods = methods;
     });
     
-    // Auto-select first if empty and creating new
     if (!isEdit && _selectedCategory.isEmpty && _topCategories.isNotEmpty) _selectedCategory = _topCategories.first.value;
     if (!isEdit && _selectedPaymentMethod.isEmpty && _topPaymentMethods.isNotEmpty) _selectedPaymentMethod = _topPaymentMethods.first.value;
-    
-    // Re-fetch to ensure defaults loaded
-    if (cats.isEmpty || methods.isEmpty) {
-       final c = await DatabaseHelper.instance.getTopOptions('Category');
-       final m = await DatabaseHelper.instance.getTopOptions('Payment Method');
-       setState(() { _topCategories = c; _topPaymentMethods = m; });
-    }
   }
 
   Future<void> _openManageOptions(String fieldName) async {
-    // Opens the sub-page to Add/Edit/Delete options, then waits for it to close
     final selectedFromMore = await Navigator.push(
       context,
       MaterialPageRoute(builder: (_) => ManageOptionsScreen(fieldName: fieldName)),
     );
     
-    // Refresh the top 5 chips when coming back
     await _loadTopOptions();
     
-    // If user selected an option from the "More" screen, apply it
     if (selectedFromMore != null && selectedFromMore is String) {
       setState(() {
         if (fieldName == 'Category') _selectedCategory = selectedFromMore;
@@ -96,8 +82,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     }
   }
 
-    
-  // Saves Entry New/Upate
   Future<void> _saveEntry({required bool addNew}) async {
     if (_amountCtrl.text.isEmpty) return;
 
@@ -116,7 +100,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     );
 
     if (isEdit) {
-      // 1. Check for changes and log them
       final old = widget.existingEntry!;
       
       Future<void> logIfChanged(String field, String oldVal, String newVal) async {
@@ -133,21 +116,21 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       }
 
       await logIfChanged('Amount', old.amount.toString(), amount.toString());
+      await logIfChanged('Type', old.type.toUpperCase(), _type.toUpperCase());
       await logIfChanged('Category', old.category, _selectedCategory);
       await logIfChanged('Payment Method', old.paymentMethod, _selectedPaymentMethod);
       await logIfChanged('Remark', old.note, _noteCtrl.text.trim());
 
-      // 2. Update the actual entry in the database
       await DatabaseHelper.instance.updateEntry(entry);
       
     } else {
-      // It's a brand new entry, just insert it normally
       await DatabaseHelper.instance.insertEntry(entry);
     }
     
-    // Boost the ranking of the used category and payment method
     await DatabaseHelper.instance.recordOptionUsage('Category', _selectedCategory);
     await DatabaseHelper.instance.recordOptionUsage('Payment Method', _selectedPaymentMethod);
+
+    // TODO: Update Book Balance Here
 
     if (addNew) {
       _amountCtrl.clear();
@@ -159,13 +142,11 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     }
   }
 
-
-  // Reusable widget for building the radio chips
   Widget _buildOptionsRow(String title, String fieldName, List<FieldOption> options, String selectedValue, Function(String) onSelect) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(title, style: const TextStyle(fontSize: 12, fontWeight: 12, fontWeight: FontWeight.bold, color: textMuted)),
+        Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -183,7 +164,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
                 onSelected: (selected) { if (selected) onSelect(opt.value); },
               );
             }),
-            // The "+ More" Button
             ActionChip(
               label: const Text('+ More', style: TextStyle(fontWeight: FontWeight.bold, color: accent)),
               backgroundColor: accentLight,
@@ -203,7 +183,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // IN / OUT Toggle
           Container(
             padding: const EdgeInsets.all(4),
             decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(16)),
@@ -233,8 +212,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             ),
           ),
           const SizedBox(height: 24),
-
-          // Amount
           TextField(
             controller: _amountCtrl,
             keyboardType: TextInputType.number,
@@ -242,16 +219,10 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             decoration: const InputDecoration(labelText: 'Amount', prefixText: '₹ ', border: OutlineInputBorder()),
           ),
           const SizedBox(height: 24),
-
-          // Category Chips
           _buildOptionsRow('CATEGORY', 'Category', _topCategories, _selectedCategory, (val) => setState(() => _selectedCategory = val)),
           const SizedBox(height: 24),
-
-          // Payment Method Chips
           _buildOptionsRow('PAYMENT METHOD', 'Payment Method', _topPaymentMethods, _selectedPaymentMethod, (val) => setState(() => _selectedPaymentMethod = val)),
           const SizedBox(height: 24),
-
-          // Note / Remarks
           TextField(
             controller: _noteCtrl,
             maxLines: 2,
@@ -259,8 +230,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           ),
         ],
       ),
-
-      // DYNAMIC BOTTOM BUTTONS
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
