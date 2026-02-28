@@ -65,38 +65,41 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     }
   }
 
-    void _deleteEntry() {
-    showDialog(
+      void _deleteEntry() async {
+    // 1. Wait for the dialog to return a true/false result
+    final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Entry?'),
         content: const Text('Are you sure you want to permanently delete this transaction?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false), // Pops dialog synchronously
+            child: const Text('Cancel')
+          ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: danger),
-            onPressed: () async {
-              // 1. Delete the entry from the database
-              await DatabaseHelper.instance.deleteEntry(_currentEntry.id);
-              
-              // 2. Reverse the amount from the Book's balance
-              double amountToReverse = _currentEntry.type == 'in' ? -_currentEntry.amount : _currentEntry.amount;
-              widget.book.balance += amountToReverse;
-              await DatabaseHelper.instance.updateBook(widget.book);
-              
-              // Safely pop the dialog (using its specific context 'ctx')
-              if (!ctx.mounted) return;
-              Navigator.pop(ctx); 
-
-              // Safely pop the screen (using the main state 'context')
-              if (!context.mounted) return;
-              Navigator.pop(context); 
-            },
+            onPressed: () => Navigator.pop(ctx, true), // Pops dialog synchronously and returns true
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
           )
         ],
       )
     );
+
+    // 2. If the user clicked Delete, run the async code safely in the main context
+    if (confirm == true) {
+      // Delete the entry from the database
+      await DatabaseHelper.instance.deleteEntry(_currentEntry.id);
+      
+      // Reverse the amount from the Book's balance
+      double amountToReverse = _currentEntry.type == 'in' ? -_currentEntry.amount : _currentEntry.amount;
+      widget.book.balance += amountToReverse;
+      await DatabaseHelper.instance.updateBook(widget.book);
+      
+      // The Magic Fix: Check context.mounted instead of mounted
+      if (!context.mounted) return; 
+      Navigator.pop(context); 
+    }
   }
 
 
