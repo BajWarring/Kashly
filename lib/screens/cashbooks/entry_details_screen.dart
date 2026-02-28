@@ -65,7 +65,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     }
   }
 
-  void _deleteEntry() {
+    void _deleteEntry() {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -84,10 +84,13 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
               widget.book.balance += amountToReverse;
               await DatabaseHelper.instance.updateBook(widget.book);
               
-              if (!mounted) return; // Fixed async gap
-              
-              Navigator.pop(ctx); // Close dialog
-              Navigator.pop(context); // Go back to cashbook
+              // Safely pop the dialog (using its specific context 'ctx')
+              if (!ctx.mounted) return;
+              Navigator.pop(ctx); 
+
+              // Safely pop the screen (using the main state 'context')
+              if (!context.mounted) return;
+              Navigator.pop(context); 
             },
             child: const Text('Delete', style: TextStyle(color: Colors.white)),
           )
@@ -95,6 +98,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
       )
     );
   }
+
 
   Widget _buildDetailRow(String label, String value, {Color? valueColor, bool isLarge = false}) {
     return Padding(
