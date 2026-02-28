@@ -23,16 +23,18 @@ class _CashbookScreenState extends State<CashbookScreen> {
     _loadEntries();
   }
 
-  Future<void> _loadEntries() async {
+    Future<void> _loadEntries() async {
     setState(() => _isLoading = true);
-    // TODO: Fetch from DatabaseHelper using widget.book.id
-    // final data = await DatabaseHelper.instance.getEntriesForBook(widget.book.id);
+    
+    // Fetch real data from SQLite
+    final data = await DatabaseHelper.instance.getEntriesForBook(widget.book.id);
     
     setState(() {
-      // entries = data;
+      entries = data; // Use the real data
       _isLoading = false;
     });
   }
+
 
   void _showAddEntryDialog(String type) {
     final amountCtrl = TextEditingController();
@@ -78,13 +80,13 @@ class _CashbookScreenState extends State<CashbookScreen> {
                 timestamp: DateTime.now().millisecondsSinceEpoch,
               );
 
-              // TODO: Insert into SQLite database
-              // await DatabaseHelper.instance.insertEntry(newEntry);
+             // Insert into SQLite database
+              await DatabaseHelper.instance.insertEntry(newEntry);
               
               // Update book balance
-              // final updatedBook = widget.book;
-              // updatedBook.balance += (type == 'in' ? newEntry.amount : -newEntry.amount);
-              // await DatabaseHelper.instance.updateBook(updatedBook);
+              final updatedBook = widget.book;
+              updatedBook.balance += (type == 'in' ? newEntry.amount : -newEntry.amount);
+              await DatabaseHelper.instance.updateBook(updatedBook);
 
               Navigator.pop(ctx);
               _loadEntries(); // Refresh the list
