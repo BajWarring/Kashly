@@ -223,8 +223,10 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
           ),
           const SizedBox(height: 32),
 
-          // 4. EDIT HISTORY CARDS
-          if (editHistory.isNotEmpty) ...[
+         // 4. EDIT HISTORY CARDS
+          if (_isLoadingLogs)
+             const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: accent)))
+          else if (editHistory.isNotEmpty) ...[
             const Padding(
               padding: EdgeInsets.only(left: 8.0, bottom: 12.0),
               child: Text('EDIT HISTORY', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textLight, letterSpacing: 1.2)),
