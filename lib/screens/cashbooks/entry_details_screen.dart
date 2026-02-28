@@ -65,8 +65,11 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     }
   }
 
-      void _deleteEntry() async {
-    // 1. Wait for the dialog to return a true/false result
+        void _deleteEntry() async {
+    // 1. Capture the Navigator synchronously BEFORE any async gaps!
+    final navigator = Navigator.of(context);
+
+    // 2. Wait for the dialog to return a true/false result
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -86,7 +89,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
       )
     );
 
-    // 2. If the user clicked Delete, run the async code safely in the main context
+    // 3. If the user clicked Delete, run the async code safely
     if (confirm == true) {
       // Delete the entry from the database
       await DatabaseHelper.instance.deleteEntry(_currentEntry.id);
@@ -96,39 +99,11 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
       widget.book.balance += amountToReverse;
       await DatabaseHelper.instance.updateBook(widget.book);
       
-      // The Magic Fix: Check context.mounted instead of mounted
-      if (!context.mounted) return; 
-      Navigator.pop(context); 
+      // 4. Use the captured navigator! The linter loves this.
+      navigator.pop(); 
     }
   }
 
-
-  Widget _buildDetailRow(String label, String value, {Color? valueColor, bool isLarge = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textMuted)),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              value, 
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: isLarge ? 18 : 14, 
-                fontWeight: isLarge ? FontWeight.w900 : FontWeight.bold, 
-                color: valueColor ?? textDark
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
