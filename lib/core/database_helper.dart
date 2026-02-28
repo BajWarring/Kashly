@@ -4,6 +4,7 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'models/book.dart';
 import 'models/edit_log.dart';
+import 'models/field_option.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -71,6 +72,16 @@ class DatabaseHelper {
         newValue TEXT NOT NULL,
         timestamp INTEGER NOT NULL,
         FOREIGN KEY (entryId) REFERENCES entries (id) ON DELETE CASCADE
+      )
+    ''');
+    // 4. Fields Option Buttons
+    await db.execute('''
+      CREATE TABLE field_options (
+        id TEXT PRIMARY KEY,
+        fieldName TEXT NOT NULL,
+        value TEXT NOT NULL,
+        usageCount INTEGER NOT NULL,
+        lastUsed INTEGER NOT NULL
       )
     ''');
   }
@@ -151,5 +162,55 @@ class DatabaseHelper {
       log.toMap(),
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
+  }
+    
+  // --- CRUD for Field Options ---
+  
+  // Gets the top 5 most recently/heavily used options
+  Future<List<FieldOption>> getTopOptions(String fieldName, {int limit = 5}) async {
+    final db = await instance.database;
+    final result = await db.query(
+      'field_options',
+      where: 'fieldName = ?',
+      whereArgs: [fieldName],
+      orderBy: 'lastUsed DESC, usageCount DESC', // Sorts by recent and most used
+      limit: limit,
+    );
+    return result.map((map) => FieldOption.fromMap(map)).toList();
+  }
+
+  // Gets ALL options for the sub-page
+  Future<List<FieldOption>> getAllOptions(String fieldName) async {
+    final db = await instance.database;
+    final result = await db.query('field_options', where: 'fieldName = ?', whereArgs: [fieldName], orderBy: 'value ASC');
+    return result.map((map) => FieldOption.fromMap(map)).toList();
+  }
+
+  Future<void> insertOption(FieldOption option) async {
+    final db = await instance.database;
+    await db.insert('field_options', option.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  // Call this when an entry is saved to boost the option's ranking
+  Future<void> recordOptionUsage(String fieldName, String value) async {
+    final db = await instance.database;
+    final existing = await db.query('field_options', where: 'fieldName = ? AND value = ?', whereArgs: [fieldName, value]);
+    
+    if (existing.isNotEmpty) {
+      final opt = FieldOption.fromMap(existing.first);
+      opt.usageCount += 1;
+      opt.lastUsed = DateTime.now().millisecondsSinceEpoch;
+      await db.update('field_options', opt.toMap(), where: 'id = ?', whereArgs: [opt.id]);
+    } else {
+      // If it doesn't exist, create it automatically
+      final newOpt = FieldOption(
+        id: 'OPT-${DateTime.now().millisecondsSinceEpoch}',
+        fieldName: fieldName,
+        value: value,
+        usageCount: 1,
+        lastUsed: DateTime.now().millisecondsSinceEpoch,
+      );
+      await insertOption(newOpt);
+    }
   }
 }
