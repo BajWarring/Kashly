@@ -102,6 +102,16 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     if (isEdit) {
       final old = widget.existingEntry!;
       
+      // Calculate balance difference
+      double oldSignedAmount = old.type == 'in' ? old.amount : -old.amount;
+      double newSignedAmount = _type == 'in' ? amount : -amount;
+      double difference = newSignedAmount - oldSignedAmount;
+      
+      // Apply the difference to the book balance
+      widget.book.balance += difference;
+      await DatabaseHelper.instance.updateBook(widget.book);
+
+      // Log changes
       Future<void> logIfChanged(String field, String oldVal, String newVal) async {
         if (oldVal != newVal) {
           await DatabaseHelper.instance.insertEditLog(EditLog(
@@ -124,13 +134,17 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       await DatabaseHelper.instance.updateEntry(entry);
       
     } else {
+      // It's a brand new entry
       await DatabaseHelper.instance.insertEntry(entry);
+      
+      // Update book balance
+      widget.book.balance += (_type == 'in' ? amount : -amount);
+      await DatabaseHelper.instance.updateBook(widget.book);
     }
     
+    // Boost the ranking of the used categories
     await DatabaseHelper.instance.recordOptionUsage('Category', _selectedCategory);
     await DatabaseHelper.instance.recordOptionUsage('Payment Method', _selectedPaymentMethod);
-
-    // TODO: Update Book Balance Here
 
     if (addNew) {
       _amountCtrl.clear();
