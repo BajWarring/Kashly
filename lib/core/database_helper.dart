@@ -88,4 +88,27 @@ class DatabaseHelper {
       whereArgs: [id],
     );
   }
+ // --- CRUD Operations for Entries ---
+
+  // Fetch all entries for a specific cashbook
+  Future<List<Entry>> getEntriesForBook(String bookId) async {
+    final db = await instance.database;
+    final result = await db.query(
+      'entries',
+      where: 'bookId = ?',
+      whereArgs: [bookId],
+      orderBy: 'timestamp DESC', // Shows newest entries at the top
+    );
+    return result.map((map) => Entry.fromMap(map)).toList();
+  }
+
+  // Insert a new entry
+  Future<void> insertEntry(Entry entry) async {
+    final db = await instance.database;
+    await db.insert(
+      'entries',
+      entry.toMap(),
+      conflictAlgorithm: ConflictAlgorithm.replace,
+    );
+  }
 }
