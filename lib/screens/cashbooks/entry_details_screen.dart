@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart';
+import 'package:intl/intl.dart'; // Added missing import
 
 import '../../core/models/book.dart';
 import '../../core/models/entry.dart';
-import '../../core/models/edit_log.dart';
+import '../../core/models/edit_log.dart'; // Added missing import
 import '../../core/database_helper.dart';
 import '../../core/theme.dart';
 import 'add_entry_screen.dart';
@@ -33,6 +33,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
   Future<void> _loadEditHistory() async {
     setState(() => _isLoadingLogs = true);
     final logs = await DatabaseHelper.instance.getLogsForEntry(_currentEntry.id);
+    if (!mounted) return;
     setState(() {
       editHistory = logs;
       _isLoadingLogs = false;
@@ -56,6 +57,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
 
     if (didUpdate == true) {
       final updatedEntry = await DatabaseHelper.instance.getEntryById(_currentEntry.id);
+      if (!mounted) return; // Fixed async gap
       if (updatedEntry != null) {
         setState(() => _currentEntry = updatedEntry);
         _loadEditHistory(); 
@@ -81,6 +83,8 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
               double amountToReverse = _currentEntry.type == 'in' ? -_currentEntry.amount : _currentEntry.amount;
               widget.book.balance += amountToReverse;
               await DatabaseHelper.instance.updateBook(widget.book);
+              
+              if (!mounted) return; // Fixed async gap
               
               Navigator.pop(ctx); // Close dialog
               Navigator.pop(context); // Go back to cashbook
@@ -182,7 +186,8 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
               padding: EdgeInsets.only(left: 8.0, bottom: 12.0),
               child: Text('EDIT HISTORY', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textLight, letterSpacing: 1.2)),
             ),
-            ...editHistory.map((log) => Container(
+            // Explicitly typing 'EditLog log' fixes the nullability analyzer error
+            ...editHistory.map((EditLog log) => Container(
               margin: const EdgeInsets.only(bottom: 12),
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
