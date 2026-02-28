@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-import 'dart:math';
+import 'package:intl/intl.dart';
 
 import '../../core/models/book.dart';
 import '../../core/models/entry.dart';
-import '../../core/theme.dart'; // Adjust path if needed
+import '../../core/database_helper.dart';
+import '../../core/theme.dart';
+import 'add_entry_screen.dart';
+import 'entry_details_screen.dart';
 
 class CashbookScreen extends StatefulWidget {
   final Book book;
@@ -23,79 +26,31 @@ class _CashbookScreenState extends State<CashbookScreen> {
     _loadEntries();
   }
 
-    Future<void> _loadEntries() async {
+  Future<void> _loadEntries() async {
     setState(() => _isLoading = true);
     
     // Fetch real data from SQLite
     final data = await DatabaseHelper.instance.getEntriesForBook(widget.book.id);
     
     setState(() {
-      entries = data; // Use the real data
+      entries = data;
       _isLoading = false;
     });
   }
 
-
-  void _showAddEntryDialog(String type) {
-    final amountCtrl = TextEditingController();
-    final noteCtrl = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(type == 'in' ? 'Cash In (+)' : 'Cash Out (-)'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: amountCtrl,
-              keyboardType: TextInputType.number,
-              decoration: const InputDecoration(labelText: 'Amount', border: OutlineInputBorder()),
-            ),
-            const SizedBox(height: 12),
-            TextField(
-              controller: noteCtrl,
-              decoration: const InputDecoration(labelText: 'Note / Remark', border: OutlineInputBorder()),
-            ),
-          ],
+  void _openAddEntryScreen(String type) async {
+    // Navigate to the full-screen form
+    await Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddEntryScreen(
+          book: widget.book,
+          initialType: type,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: type == 'in' ? success : danger,
-            ),
-            onPressed: () async {
-              if (amountCtrl.text.isEmpty) return;
-              
-              final newEntry = Entry(
-                id: 'ENT-${Random().nextInt(999999)}',
-                bookId: widget.book.id,
-                type: type,
-                amount: double.tryParse(amountCtrl.text) ?? 0.0,
-                note: noteCtrl.text.trim(),
-                timestamp: DateTime.now().millisecondsSinceEpoch,
-              );
-
-             // Insert into SQLite database
-              await DatabaseHelper.instance.insertEntry(newEntry);
-              
-              // Update book balance
-              final updatedBook = widget.book;
-              updatedBook.balance += (type == 'in' ? newEntry.amount : -newEntry.amount);
-              await DatabaseHelper.instance.updateBook(updatedBook);
-
-              Navigator.pop(ctx);
-              _loadEntries(); // Refresh the list
-            },
-            child: const Text('Save', style: TextStyle(color: Colors.white)),
-          )
-        ],
       ),
     );
+    // Refresh the list when returning from the add screen
+    _loadEntries();
   }
 
   @override
@@ -104,12 +59,11 @@ class _CashbookScreenState extends State<CashbookScreen> {
       appBar: AppBar(
         title: Text(widget.book.name),
         actions: [
-          // A simple balance display in the app bar
           Padding(
             padding: const EdgeInsets.only(right: 16.0),
             child: Center(
               child: Text(
-                'Balance: ${widget.book.balance}',
+                'Balance: ₹${widget.book.balance.toStringAsFixed(2)}',
                 style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
               ),
             ),
@@ -117,30 +71,55 @@ class _CashbookScreenState extends State<CashbookScreen> {
         ],
       ),
       body: _isLoading 
-        ? const Center(child: CircularProgressIndicator())
+        ? const Center(child: CircularProgressIndicator(color: accent))
         : entries.isEmpty 
-            ? const Center(child: Text('No entries yet. Add some cash!'))
+            ? const Center(child: Text('No entries yet. Add some cash!', style: TextStyle(color: textMuted)))
             : ListView.builder(
                 padding: const EdgeInsets.all(16),
                 itemCount: entries.length,
                 itemBuilder: (context, index) {
                   final entry = entries[index];
                   final isOut = entry.type == 'out';
+                  final dateStr = DateFormat('dd MMM, hh:mm a').format(DateTime.fromMillisecondsSinceEpoch(entry.timestamp));
                   
                   return Card(
                     elevation: 0,
+                    margin: const EdgeInsets.only(bottom: 12),
                     shape: RoundedRectangleBorder(
                       side: const BorderSide(color: borderCol),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(16),
                     ),
                     child: ListTile(
-                      title: Text(entry.note.isNotEmpty ? entry.note : 'No Note'),
-                      subtitle: Text(DateTime.fromMillisecondsSinceEpoch(entry.timestamp).toString()),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                      onTap: () {
+                        // Navigate to details screen when an entry is tapped
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => EntryDetailsScreen(
+                              entry: entry,
+                              book: widget.book,
+                            ),
+                          ),
+                        ).then((_) => _loadEntries()); // Refresh list when returning
+                      },
+                      title: Text(
+                        entry.category.isNotEmpty ? entry.category : 'Uncategorized',
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: textDark),
+                      ),
+                      subtitle: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const SizedBox(height: 4),
+                          if (entry.note.isNotEmpty) Text(entry.note, style: const TextStyle(color: textMuted, fontSize: 13)),
+                          Text(dateStr, style: const TextStyle(color: textLight, fontSize: 11)),
+                        ],
+                      ),
                       trailing: Text(
-                        '${isOut ? '-' : '+'}${entry.amount}',
+                        '${isOut ? '-' : '+'}₹${entry.amount.toStringAsFixed(2)}',
                         style: TextStyle(
                           color: isOut ? danger : success,
-                          fontWeight: FontWeight.bold,
+                          fontWeight: FontWeight.w900,
                           fontSize: 16,
                         ),
                       ),
@@ -149,7 +128,6 @@ class _CashbookScreenState extends State<CashbookScreen> {
                 },
               ),
       
-      // Bottom Buttons for Cash In / Cash Out
       bottomNavigationBar: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(16.0),
@@ -157,12 +135,13 @@ class _CashbookScreenState extends State<CashbookScreen> {
             children: [
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () => _showAddEntryDialog('out'),
+                  onPressed: () => _openAddEntryScreen('out'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: dangerLight,
                     foregroundColor: danger,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   icon: const Icon(Icons.remove_circle_outline),
                   label: const Text('CASH OUT', style: TextStyle(fontWeight: FontWeight.bold)),
@@ -171,12 +150,13 @@ class _CashbookScreenState extends State<CashbookScreen> {
               const SizedBox(width: 16),
               Expanded(
                 child: ElevatedButton.icon(
-                  onPressed: () => _showAddEntryDialog('in'),
+                  onPressed: () => _openAddEntryScreen('in'),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: successLight,
                     foregroundColor: success,
                     padding: const EdgeInsets.symmetric(vertical: 16),
                     elevation: 0,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
                   ),
                   icon: const Icon(Icons.add_circle_outline),
                   label: const Text('CASH IN', style: TextStyle(fontWeight: FontWeight.bold)),
