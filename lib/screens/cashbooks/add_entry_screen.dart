@@ -4,7 +4,7 @@ import 'dart:math';
 import '../../core/models/book.dart';
 import '../../core/models/entry.dart';
 import '../../core/models/field_option.dart';
-import '../../core/models/edit_log.dart';
+import '../../core/models/edit_log.dart'; // Added missing import
 import '../../core/database_helper.dart';
 import '../../core/theme.dart';
 import 'manage_options_screen.dart';
@@ -57,6 +57,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       await DatabaseHelper.instance.insertOption(FieldOption(id: 'p1', fieldName: 'Payment Method', value: 'Cash', lastUsed: 0));
     }
 
+    if (!mounted) return;
+
     setState(() {
       _topCategories = cats;
       _topPaymentMethods = methods;
@@ -74,6 +76,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     
     await _loadTopOptions();
     
+    if (!mounted) return; // Fixed async gap
+
     if (selectedFromMore != null && selectedFromMore is String) {
       setState(() {
         if (fieldName == 'Category') _selectedCategory = selectedFromMore;
@@ -97,6 +101,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       category: _selectedCategory,
       paymentMethod: _selectedPaymentMethod,
       timestamp: isEdit ? widget.existingEntry!.timestamp : now,
+      // Retain custom fields and links when editing
       linkedEntryId: isEdit ? widget.existingEntry!.linkedEntryId : null,
       customFields: isEdit ? widget.existingEntry!.customFields : {},
     );
@@ -147,6 +152,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     // Boost the ranking of the used categories
     await DatabaseHelper.instance.recordOptionUsage('Category', _selectedCategory);
     await DatabaseHelper.instance.recordOptionUsage('Payment Method', _selectedPaymentMethod);
+
+    if (!mounted) return; // Fixed async gap
 
     if (addNew) {
       _amountCtrl.clear();
