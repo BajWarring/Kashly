@@ -141,6 +141,18 @@ class DatabaseHelper {
       conflictAlgorithm: ConflictAlgorithm.replace,
     );
   }
+  
+  // Update an existing entry
+  Future<void> updateEntry(Entry entry) async {
+    final db = await instance.database;
+    await db.update(
+      'entries',
+      entry.toMap(),
+      where: 'id = ?',
+      whereArgs: [entry.id],
+    );
+  }
+
     
   // --- CRUD Operations for Edit Logs ---
 
