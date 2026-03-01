@@ -103,7 +103,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     }
   }
 
-  void _showShareSheet(BuildContext context) {
+    void _showShareSheet(BuildContext context) {
     int selectedOption = 0; // 0 = without logs, 1 = with logs
     showModalBottomSheet(
       context: context,
@@ -118,18 +118,39 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
             children: [
               const Text('Share Entry', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textDark)),
               const SizedBox(height: 16),
-              RadioListTile(
-                value: 0, groupValue: selectedOption,
-                onChanged: (val) => setSheetState(() => selectedOption = val as int),
-                title: const Text('Share without Edit Logs', style: TextStyle(fontWeight: FontWeight.w600)),
-                activeColor: accent, contentPadding: EdgeInsets.zero,
+              
+              // Custom Radio Option 1
+              InkWell(
+                onTap: () => setSheetState(() => selectedOption = 0),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      Icon(selectedOption == 0 ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: selectedOption == 0 ? accent : textMuted),
+                      const SizedBox(width: 12),
+                      const Text('Share without Edit Logs', style: TextStyle(fontWeight: FontWeight.w600, color: textDark, fontSize: 16)),
+                    ],
+                  ),
+                ),
               ),
-              RadioListTile(
-                value: 1, groupValue: selectedOption,
-                onChanged: (val) => setSheetState(() => selectedOption = val as int),
-                title: const Text('Share including Edit Logs', style: TextStyle(fontWeight: FontWeight.w600)),
-                activeColor: accent, contentPadding: EdgeInsets.zero,
+              
+              // Custom Radio Option 2
+              InkWell(
+                onTap: () => setSheetState(() => selectedOption = 1),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(
+                    children: [
+                      Icon(selectedOption == 1 ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: selectedOption == 1 ? accent : textMuted),
+                      const SizedBox(width: 12),
+                      const Text('Share including Edit Logs', style: TextStyle(fontWeight: FontWeight.w600, color: textDark, fontSize: 16)),
+                    ],
+                  ),
+                ),
               ),
+              
               const SizedBox(height: 24),
               SizedBox(
                 width: double.infinity,
@@ -146,6 +167,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
       )
     );
   }
+
 
   Widget _buildGridItem(String title, String val, IconData icon) {
     return Column(
