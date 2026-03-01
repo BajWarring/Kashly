@@ -20,7 +20,7 @@ class EntryDetailsScreen extends StatefulWidget {
 
 class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
   late Entry _currentEntry;
-  List<EditLog> editHistory = [];
+  Map<int, List<EditLog>> groupedLogs = {};
   bool _isLoadingLogs = true;
 
   @override
@@ -34,16 +34,25 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     setState(() => _isLoadingLogs = true);
     final logs = await DatabaseHelper.instance.getLogsForEntry(_currentEntry.id);
     
+    // Group logs by exact timestamp to match the UI design
+    Map<int, List<EditLog>> grouped = {};
+    for (var log in logs) {
+      if (!grouped.containsKey(log.timestamp)) {
+        grouped[log.timestamp] = [];
+      }
+      grouped[log.timestamp]!.add(log);
+    }
+
     if (!mounted) return;
-    
     setState(() {
-      editHistory = logs;
+      groupedLogs = grouped;
       _isLoadingLogs = false;
     });
   }
 
   String _formatDateTime(int ms) {
-    return DateFormat('dd MMM yyyy, hh:mm a').format(DateTime.fromMillisecondsSinceEpoch(ms));
+    final d = DateTime.fromMillisecondsSinceEpoch(ms);
+    return "${d.day}/${d.month}/${d.year} ${d.hour.toString().padLeft(2,'0')}:${d.minute.toString().padLeft(2,'0')}";
   }
 
   void _openEditEditor() async {
@@ -59,9 +68,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
 
     if (didUpdate == true) {
       final updatedEntry = await DatabaseHelper.instance.getEntryById(_currentEntry.id);
-      
       if (!mounted) return; 
-      
       if (updatedEntry != null) {
         setState(() => _currentEntry = updatedEntry);
         _loadEditHistory(); 
@@ -70,20 +77,14 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
   }
 
   void _deleteEntry() async {
-    // 1. Capture the Navigator synchronously BEFORE any async gaps
     final navigator = Navigator.of(context);
-
-    // 2. Wait for the dialog to return a true/false result
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Entry?'),
         content: const Text('Are you sure you want to permanently delete this transaction?'),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false), 
-            child: const Text('Cancel')
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: danger),
             onPressed: () => Navigator.pop(ctx, true), 
@@ -93,167 +94,194 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
       )
     );
 
-    // 3. If the user clicked Delete, run the async code safely
     if (confirm == true) {
-      // Delete the entry from the database
       await DatabaseHelper.instance.deleteEntry(_currentEntry.id);
-      
-      // Reverse the amount from the Book's balance
       double amountToReverse = _currentEntry.type == 'in' ? -_currentEntry.amount : _currentEntry.amount;
       widget.book.balance += amountToReverse;
       await DatabaseHelper.instance.updateBook(widget.book);
-      
-      // 4. Use the captured navigator!
       navigator.pop(); 
     }
   }
 
-  // ---> THIS IS THE METHOD THAT GOT ACCIDENTALLY DELETED <---
-  Widget _buildDetailRow(String label, String value, {Color? valueColor, bool isLarge = false}) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8.0),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 2,
-            child: Text(label, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: textMuted)),
-          ),
-          Expanded(
-            flex: 3,
-            child: Text(
-              value, 
-              textAlign: TextAlign.right,
-              style: TextStyle(
-                fontSize: isLarge ? 18 : 14, 
-                fontWeight: isLarge ? FontWeight.w900 : FontWeight.bold, 
-                color: valueColor ?? textDark
+  void _showShareSheet(BuildContext context) {
+    int selectedOption = 0; // 0 = without logs, 1 = with logs
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setSheetState) => Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Share Entry', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textDark)),
+              const SizedBox(height: 16),
+              RadioListTile(
+                value: 0, groupValue: selectedOption,
+                onChanged: (val) => setSheetState(() => selectedOption = val as int),
+                title: const Text('Share without Edit Logs', style: TextStyle(fontWeight: FontWeight.w600)),
+                activeColor: accent, contentPadding: EdgeInsets.zero,
               ),
-            ),
+              RadioListTile(
+                value: 1, groupValue: selectedOption,
+                onChanged: (val) => setSheetState(() => selectedOption = val as int),
+                title: const Text('Share including Edit Logs', style: TextStyle(fontWeight: FontWeight.w600)),
+                activeColor: accent, contentPadding: EdgeInsets.zero,
+              ),
+              const SizedBox(height: 24),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(ctx),
+                  icon: const Icon(Icons.share, color: Colors.white, size: 18),
+                  label: const Text('Share Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(backgroundColor: accent, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
+                ),
+              )
+            ],
           ),
-        ],
-      ),
+        ),
+      )
+    );
+  }
+
+  Widget _buildGridItem(String title, String val, IconData icon) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(children: [Icon(icon, size: 12, color: textLight), const SizedBox(width: 4), Text(title.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: textMuted))]),
+        const SizedBox(height: 4),
+        Text(val, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textDark), maxLines: 1, overflow: TextOverflow.ellipsis),
+      ],
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final bool isOut = _currentEntry.type == 'out';
-    final Color typeColor = isOut ? danger : success;
-    final String typeText = isOut ? 'CASH OUT (-)' : 'CASH IN (+)';
+    final bool isIn = _currentEntry.type == 'in';
+    final Color eColor = isIn ? success : danger;
+    final Color eBg = isIn ? successLight : dangerLight;
+
+    final dateStr = DateFormat('dd MMM yyyy').format(DateTime.fromMillisecondsSinceEpoch(_currentEntry.timestamp));
+    final timeStr = DateFormat('hh:mm a').format(DateTime.fromMillisecondsSinceEpoch(_currentEntry.timestamp));
 
     return Scaffold(
       appBar: AppBar(
         title: const Text('Entry Details'),
         actions: [
+          IconButton(icon: const Icon(Icons.edit_outlined), onPressed: _openEditEditor),
           IconButton(icon: const Icon(Icons.delete_outline, color: danger), onPressed: _deleteEntry),
         ],
       ),
       body: ListView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         children: [
+          // MAIN CARD
           Container(
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderCol)),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: borderCol)),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _buildDetailRow('ENTRY TYPE', typeText, valueColor: typeColor, isLarge: true),
-                const Divider(height: 24, color: borderCol),
-                _buildDetailRow('AMOUNT', '${isOut ? "-" : "+"} ₹${_currentEntry.amount.toStringAsFixed(2)}', valueColor: typeColor, isLarge: true),
-                const Divider(height: 24, color: borderCol),
-                _buildDetailRow('DATE & TIME', _formatDateTime(_currentEntry.timestamp)),
-                const Divider(height: 24, color: borderCol),
-                _buildDetailRow('CATEGORY', _currentEntry.category.isEmpty ? 'N/A' : _currentEntry.category),
-                const Divider(height: 24, color: borderCol),
-                _buildDetailRow('PAYMENT METHOD', _currentEntry.paymentMethod.isEmpty ? 'N/A' : _currentEntry.paymentMethod),
-                const Divider(height: 24, color: borderCol),
-                _buildDetailRow('REMARK', _currentEntry.note.isEmpty ? 'N/A' : _currentEntry.note),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: eBg, borderRadius: BorderRadius.circular(8)), child: Text('CASH ${_currentEntry.type.toUpperCase()}', style: TextStyle(color: eColor, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1))),
+                    Text('$dateStr • $timeStr', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted)),
+                  ],
+                ),
+                const SizedBox(height: 20),
+                Text('₹${_currentEntry.amount.toStringAsFixed(2)}', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: eColor)),
+                const SizedBox(height: 8),
+                Text(_currentEntry.note, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: textDark)),
+                const Divider(height: 32, color: borderCol),
+                
+                // GRID FOR FIELDS
+                GridView.count(
+                  crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
+                  childAspectRatio: 3.0, mainAxisSpacing: 8, crossAxisSpacing: 12,
+                  children: [
+                    _buildGridItem('Category', _currentEntry.category, Icons.category),
+                    _buildGridItem('Payment Mode', _currentEntry.paymentMethod, Icons.account_balance),
+                  ],
+                )
               ],
             ),
           ),
           const SizedBox(height: 16),
 
+          // CREATED CARD
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
+            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
             child: Row(
               children: [
-                const Icon(Icons.info_outline, color: textMuted, size: 20),
+                const Icon(Icons.info_outline, color: textLight, size: 20),
                 const SizedBox(width: 12),
-                Expanded(
-                  child: Text(
-                    'Entry modified on\n${_formatDateTime(_currentEntry.timestamp)}',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: textMuted, height: 1.4),
-                  ),
-                ),
+                Expanded(child: Text('Entry modified on ${_formatDateTime(_currentEntry.timestamp)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: textMuted))),
               ],
             ),
           ),
-          const SizedBox(height: 32),
+          const SizedBox(height: 24),
 
+          // EDIT HISTORY
+          const Padding(padding: EdgeInsets.only(left: 8, bottom: 12), child: Text('EDIT HISTORY', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textLight, letterSpacing: 1.2))),
+          
           if (_isLoadingLogs)
              const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: accent)))
-          else if (editHistory.isNotEmpty) ...[
-            const Padding(
-              padding: EdgeInsets.only(left: 8.0, bottom: 12.0),
-              child: Text('EDIT HISTORY', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textLight, letterSpacing: 1.2)),
-            ),
-            ...editHistory.map((EditLog log) => Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text('Changed: ${log.field}', style: const TextStyle(fontWeight: FontWeight.bold, color: textDark)),
-                      Text(_formatDateTime(log.timestamp), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textMuted)),
-                    ],
-                  ),
-                  const SizedBox(height: 12),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: dangerLight, borderRadius: BorderRadius.circular(8)),
-                          child: Text(log.oldValue, style: const TextStyle(fontSize: 13, color: danger, decoration: TextDecoration.lineThrough)),
-                        ),
+          else if (groupedLogs.isEmpty)
+            Container(
+              padding: const EdgeInsets.all(24), alignment: Alignment.center,
+              decoration: BoxDecoration(color: Colors.transparent, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol, style: BorderStyle.solid)),
+              child: const Text('No edit history found.', style: TextStyle(color: textMuted, fontWeight: FontWeight.w500)),
+            )
+          else
+            // Iterate over the grouped timestamps
+            ...groupedLogs.keys.map((timestamp) {
+              final logs = groupedLogs[timestamp]!;
+              return Container(
+                margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(children: [const Icon(Icons.history, size: 14, color: textLight), const SizedBox(width: 6), Text(_formatDateTime(timestamp), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted))]),
+                    const SizedBox(height: 12),
+                    // Iterate over the changes made at this specific timestamp
+                    ...logs.map((log) => Padding(
+                      padding: const EdgeInsets.only(bottom: 8.0),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          SizedBox(width: 70, child: Text(log.field, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textDark))),
+                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                            Text(log.oldValue, style: const TextStyle(fontSize: 13, color: danger, decoration: TextDecoration.lineThrough, fontWeight: FontWeight.w500)),
+                            const SizedBox(height: 2),
+                            Text(log.newValue, style: const TextStyle(fontSize: 13, color: success, fontWeight: FontWeight.bold)),
+                          ]))
+                        ],
                       ),
-                      const Padding(
-                        padding: EdgeInsets.symmetric(horizontal: 8.0),
-                        child: Icon(Icons.arrow_forward, size: 16, color: textMuted),
-                      ),
-                      Expanded(
-                        child: Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(color: successLight, borderRadius: BorderRadius.circular(8)),
-                          child: Text(log.newValue, style: const TextStyle(fontSize: 13, color: success, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                    ],
-                  )
-                ],
-              ),
-            )),
-          ]
+                    ))
+                  ],
+                ),
+              );
+            }),
+          
+          const SizedBox(height: 100), 
         ],
       ),
-
-      floatingActionButton: Row(
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          FloatingActionButton.extended(
-            heroTag: 'edit_fab',
-            onPressed: _openEditEditor,
-            backgroundColor: accent,
-            icon: const Icon(Icons.edit, color: Colors.white),
-            label: const Text('Edit Entry', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ],
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          children: [
+            Expanded(child: ElevatedButton.icon(onPressed: () => _showShareSheet(context), icon: const Icon(Icons.share, color: textDark), label: const Text('Share', style: TextStyle(color: textDark, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: borderCol))))),
+            const SizedBox(width: 12),
+            Expanded(flex: 2, child: ElevatedButton.icon(onPressed: _openEditEditor, icon: const Icon(Icons.edit, color: Colors.white), label: const Text('Edit Entry', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: accent, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))))),
+          ],
+        ),
       ),
     );
   }
