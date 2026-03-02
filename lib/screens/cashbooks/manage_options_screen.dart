@@ -2,10 +2,10 @@ import 'package:flutter/material.dart';
 
 import '../../core/models/field_option.dart';
 import '../../core/database_helper.dart';
-import '../../core/theme.dart'; // Adjust path for your colors
+import '../../core/theme.dart'; 
 
 class ManageOptionsScreen extends StatefulWidget {
-  final String fieldName; // e.g., 'Category' or 'Payment Method'
+  final String fieldName; 
 
   const ManageOptionsScreen({super.key, required this.fieldName});
 
@@ -15,6 +15,7 @@ class ManageOptionsScreen extends StatefulWidget {
 
 class _ManageOptionsScreenState extends State<ManageOptionsScreen> {
   List<FieldOption> _options = [];
+  final Set<String> _selectedOptionIds = {}; // Tracks selected items for deletion
   bool _isLoading = true;
 
   @override
@@ -26,101 +27,87 @@ class _ManageOptionsScreenState extends State<ManageOptionsScreen> {
   Future<void> _loadOptions() async {
     setState(() => _isLoading = true);
     final data = await DatabaseHelper.instance.getAllOptions(widget.fieldName);
+    if (!mounted) return;
     setState(() {
       _options = data;
       _isLoading = false;
     });
   }
 
-  // --- ADD / EDIT DIALOG ---
-  void _showOptionDialog({FieldOption? existingOption}) {
-    final ctrl = TextEditingController(text: existingOption?.value ?? '');
-    final isEdit = existingOption != null;
-
+  void _addNewOption() {
+    final ctrl = TextEditingController();
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: Text('${isEdit ? "Edit" : "New"} ${widget.fieldName}'),
+        title: Text('New ${widget.fieldName}', style: const TextStyle(fontWeight: FontWeight.bold)),
         content: TextField(
           controller: ctrl,
           autofocus: true,
           textCapitalization: TextCapitalization.words,
-          decoration: InputDecoration(
-            hintText: 'e.g. ${widget.fieldName == "Category" ? "Travel" : "Debit Card"}',
-            filled: true,
-            fillColor: appBg,
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
-          ),
+          decoration: InputDecoration(hintText: 'Enter name...', filled: true, fillColor: appBg, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
         ),
         actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel', style: TextStyle(color: textMuted)),
-          ),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel', style: TextStyle(color: textMuted, fontWeight: FontWeight.bold))),
           ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: accent),
             onPressed: () async {
-              final val = ctrl.text.trim();
-              if (val.isEmpty) return;
-
-              if (isEdit) {
-                existingOption.value = val;
-                await DatabaseHelper.instance.updateFieldOption(existingOption);
-              } else {
+              if (ctrl.text.trim().isNotEmpty) {
                 final newOpt = FieldOption(
                   id: 'OPT-${DateTime.now().millisecondsSinceEpoch}',
                   fieldName: widget.fieldName,
-                  value: val,
+                  value: ctrl.text.trim(),
                   usageCount: 0,
                   lastUsed: DateTime.now().millisecondsSinceEpoch,
                 );
                 await DatabaseHelper.instance.insertOption(newOpt);
+                if (!ctx.mounted) return;
+                Navigator.pop(ctx);
+                _loadOptions();
               }
-
-              if (!ctx.mounted) return; // Added safe check for the dialog context
-              Navigator.pop(ctx);
-              _loadOptions();
-            },
-            child: const Text('Save', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // --- DELETE CONFIRMATION ---
-  void _confirmDelete(FieldOption option) {
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-        title: const Text('Delete Option?'),
-        content: Text('Are you sure you want to delete "${option.value}" from your saved list?'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: danger),
-            onPressed: () async {
-              await DatabaseHelper.instance.deleteFieldOption(option.id);
-              
-              if (!ctx.mounted) return; // Added safe check for the dialog context
-              Navigator.pop(ctx);
-              _loadOptions();
-            },
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+            }, 
+            style: ElevatedButton.styleFrom(backgroundColor: accent, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+            child: const Text('Add', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold))
           )
         ],
       )
     );
   }
 
+  void _deleteSelected() async {
+    for (String id in _selectedOptionIds) {
+      await DatabaseHelper.instance.deleteFieldOption(id);
+    }
+    setState(() => _selectedOptionIds.clear());
+    _loadOptions();
+  }
+
+  void _toggleSelection(String id) {
+    setState(() {
+      if (_selectedOptionIds.contains(id)) {
+        _selectedOptionIds.remove(id);
+      } else {
+        _selectedOptionIds.add(id);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
+    final isSelectionMode = _selectedOptionIds.isNotEmpty;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.fieldName),
+        leading: isSelectionMode 
+          ? IconButton(icon: const Icon(Icons.close), onPressed: () => setState(() => _selectedOptionIds.clear()))
+          : IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
+        title: Text(isSelectionMode ? '${_selectedOptionIds.length} Selected' : widget.fieldName),
+        backgroundColor: isSelectionMode ? accentLight : Colors.white,
+        actions: [
+          if (isSelectionMode)
+            IconButton(icon: const Icon(Icons.delete_outline, color: danger), onPressed: _deleteSelected)
+          else
+            IconButton(icon: const Icon(Icons.add, color: accent), onPressed: _addNewOption),
+        ],
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator(color: accent))
@@ -131,43 +118,29 @@ class _ManageOptionsScreenState extends State<ManageOptionsScreen> {
                   itemCount: _options.length,
                   itemBuilder: (context, index) {
                     final opt = _options[index];
+                    final isSelected = _selectedOptionIds.contains(opt.id);
+
                     return Container(
                       margin: const EdgeInsets.only(bottom: 8),
                       decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: borderCol),
+                        color: isSelected ? accentLight.withValues(alpha: 0.5) : Colors.white, 
+                        borderRadius: BorderRadius.circular(16), 
+                        border: Border.all(color: isSelected ? accent : borderCol)
                       ),
                       child: ListTile(
+                        contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
                         title: Text(opt.value, style: const TextStyle(fontWeight: FontWeight.bold, color: textDark)),
-                        subtitle: Text('Used ${opt.usageCount} times', style: const TextStyle(fontSize: 12, color: textMuted)),
-                        onTap: () {
-                          // Select this option and return to the Add Entry screen
-                          Navigator.pop(context, opt.value);
-                        },
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            IconButton(
-                              icon: const Icon(Icons.edit, color: textLight, size: 20),
-                              onPressed: () => _showOptionDialog(existingOption: opt),
-                            ),
-                            IconButton(
-                              icon: const Icon(Icons.delete_outline, color: danger, size: 20),
-                              onPressed: () => _confirmDelete(opt),
-                            ),
-                          ],
-                        ),
+                        trailing: isSelected ? const Icon(Icons.check_circle, color: accent) : null,
+                        
+                        // Exact behavior requested: Long press enters deletion mode, normal tap selects the item and returns
+                        onLongPress: () => _toggleSelection(opt.id),
+                        onTap: isSelectionMode 
+                          ? () => _toggleSelection(opt.id) 
+                          : () => Navigator.pop(context, opt.value),
                       ),
                     );
                   },
                 ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: accent,
-        onPressed: () => _showOptionDialog(),
-        icon: const Icon(Icons.add, color: Colors.white),
-        label: Text('Add ${widget.fieldName}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-      ),
     );
   }
 }
