@@ -31,7 +31,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   String selectedCategory = '';
   String selectedPayment = '';
   
-  final List<String> remarkSuggestions = ['Salary', 'Rent', 'Office Supplies', 'Advance Payment', 'Internet Bill'];
+  List<String> remarkSuggestions = [];
   List<FieldOption> _topCategories = [];
   List<FieldOption> _topPaymentMethods = [];
 
@@ -54,25 +54,36 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       _selectedDate = d;
       _selectedTime = TimeOfDay(hour: d.hour, minute: d.minute);
     }
-    _loadTopOptions();
+    _loadInitialData();
   }
 
-  Future<void> _loadTopOptions() async {
-    final cats = await DatabaseHelper.instance.getTopOptions('Category');
-    final methods = await DatabaseHelper.instance.getTopOptions('Payment Method');
+  Future<void> _loadInitialData() async {
+    // 1. Fetch dynamic remarks for this specific cashbook
+    final remarks = await DatabaseHelper.instance.getRecentRemarks(widget.book.id);
+
+    // 2. Fetch or create top options
+    var cats = await DatabaseHelper.instance.getTopOptions('Category');
+    var methods = await DatabaseHelper.instance.getTopOptions('Payment Method');
     
     if (cats.isEmpty) await DatabaseHelper.instance.insertOption(FieldOption(id: 'c1', fieldName: 'Category', value: 'General', lastUsed: 0));
     if (methods.isEmpty) await DatabaseHelper.instance.insertOption(FieldOption(id: 'p1', fieldName: 'Payment Method', value: 'Cash', lastUsed: 0));
 
+    cats = await DatabaseHelper.instance.getTopOptions('Category');
+    methods = await DatabaseHelper.instance.getTopOptions('Payment Method');
+
+    // 3. Guarantee 'General' and 'Cash' are always visible even if they aren't the most recently used
+    if (!cats.any((c) => c.value == 'General')) cats.insert(0, FieldOption(id: 'def_cat', fieldName: 'Category', value: 'General', lastUsed: 0));
+    if (!methods.any((m) => m.value == 'Cash')) methods.insert(0, FieldOption(id: 'def_pay', fieldName: 'Payment Method', value: 'Cash', lastUsed: 0));
+
     if (!mounted) return;
 
     setState(() {
+      remarkSuggestions = remarks;
       _topCategories = cats;
       _topPaymentMethods = methods;
     });
     
-    if (!isEdit && selectedCategory.isEmpty && _topCategories.isNotEmpty) selectedCategory = _topCategories.first.value;
-    if (!isEdit && selectedPayment.isEmpty && _topPaymentMethods.isNotEmpty) selectedPayment = _topPaymentMethods.first.value;
+    // Note: We intentionally leave selectedCategory and selectedPayment empty for new entries!
   }
 
   Future<void> _openManageOptions(String fieldName) async {
@@ -81,7 +92,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       MaterialPageRoute(builder: (_) => ManageOptionsScreen(fieldName: fieldName)),
     );
     
-    await _loadTopOptions();
+    await _loadInitialData();
     if (!mounted) return; 
 
     if (selectedFromMore != null && selectedFromMore is String) {
@@ -124,8 +135,12 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   }
 
   Future<void> _saveEntry(bool addNew) async {
-    if (_amountCtrl.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Amount is required.'), backgroundColor: danger));
+    // MANDATORY FIELDS VALIDATION
+    if (_amountCtrl.text.isEmpty || _remarkCtrl.text.trim().isEmpty || selectedCategory.isEmpty || selectedPayment.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: const Text('Amount, Remarks, Category, and Payment are required.'), 
+        backgroundColor: danger, behavior: SnackBarBehavior.floating,
+      ));
       return;
     }
 
@@ -158,6 +173,12 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           await DatabaseHelper.instance.insertEditLog(EditLog(id: 'LOG-${Random().nextInt(999999)}', entryId: old.id, field: field, oldValue: oldVal.isEmpty ? 'Empty' : oldVal, newValue: newVal.isEmpty ? 'Empty' : newVal, timestamp: DateTime.now().millisecondsSinceEpoch));
         }
       }
+      
+      // LOGGING DATE AND TIME CHANGES
+      final oldDateObj = DateTime.fromMillisecondsSinceEpoch(old.timestamp);
+      await logIfChanged('Date', _formatDate(oldDateObj), _formatDate(combinedDate));
+      await logIfChanged('Time', _formatTime(TimeOfDay.fromDateTime(oldDateObj)), _formatTime(_selectedTime));
+
       await logIfChanged('Amount', old.amount.toString(), amount.toString());
       await logIfChanged('Type', old.type.toUpperCase(), typeStr.toUpperCase());
       await logIfChanged('Category', old.category, selectedCategory);
@@ -182,9 +203,11 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       setState(() {
         _selectedDate = DateTime.now();
         _selectedTime = TimeOfDay.now();
+        selectedCategory = '';
+        selectedPayment = '';
       });
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: const Text('Saved! Add next entry.'), backgroundColor: success));
-      _loadTopOptions(); 
+      _loadInitialData(); 
     } else {
       Navigator.pop(context, true); 
     }
@@ -210,7 +233,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
         title: Column(
           crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            const Text('Add Entry'),
+            Text(isEdit ? 'Edit Entry' : 'Add Entry'),
             Text(widget.book.name, style: const TextStyle(fontSize: 12, color: textMuted, fontWeight: FontWeight.normal)),
           ],
         ),
@@ -312,7 +335,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           const SizedBox(height: 24),
 
           // REMARKS FIELD
-          const Text('REMARKS', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textMuted, letterSpacing: 1)),
+          const Text('REMARKS *', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textMuted, letterSpacing: 1)),
           const SizedBox(height: 8),
           TextField(
             controller: _remarkCtrl,
@@ -321,25 +344,29 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
               hintText: 'What was this for?',
               hintStyle: const TextStyle(color: textLight, fontWeight: FontWeight.normal),
               filled: true, fillColor: appBg,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none),
+              // Added Border/Edge to remarks field
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol)),
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: activeColor, width: 2)),
             ),
           ),
           const SizedBox(height: 12),
-          // Suggestions
-          Wrap(
-            spacing: 8, runSpacing: 8,
-            children: remarkSuggestions.map((s) => InkWell(
-              onTap: () => setState(() => _remarkCtrl.text = s),
-              borderRadius: BorderRadius.circular(8),
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(color: Colors.white, border: Border.all(color: borderCol), borderRadius: BorderRadius.circular(8)),
-                child: Text(s, style: const TextStyle(fontSize: 12, color: textMuted, fontWeight: FontWeight.w500)),
-              ),
-            )).toList(),
-          ),
-          const SizedBox(height: 24),
+          
+          // DYNAMIC SUGGESTIONS
+          if (remarkSuggestions.isNotEmpty)
+            Wrap(
+              spacing: 8, runSpacing: 8,
+              children: remarkSuggestions.map((s) => InkWell(
+                onTap: () => setState(() => _remarkCtrl.text = s),
+                borderRadius: BorderRadius.circular(8),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                  decoration: BoxDecoration(color: Colors.white, border: Border.all(color: borderCol), borderRadius: BorderRadius.circular(8)),
+                  child: Text(s, style: const TextStyle(fontSize: 12, color: textMuted, fontWeight: FontWeight.w500)),
+                ),
+              )).toList(),
+            ),
+          if (remarkSuggestions.isNotEmpty) const SizedBox(height: 24),
 
           // CATEGORY
           const Text('CATEGORY *', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textMuted, letterSpacing: 1)),
@@ -385,26 +412,35 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        child: Row(
-          children: [
-            Expanded(
-              child: ElevatedButton(
-                onPressed: () => _saveEntry(true), 
-                style: ElevatedButton.styleFrom(backgroundColor: activeBg, elevation: 0, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), 
-                child: Text('Save & New', style: TextStyle(color: activeColor, fontWeight: FontWeight.bold))
-              )
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              flex: 2, 
+        child: isEdit 
+          ? SizedBox(
+              width: double.infinity,
               child: ElevatedButton(
                 onPressed: () => _saveEntry(false), 
                 style: ElevatedButton.styleFrom(backgroundColor: activeColor, elevation: 4, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), 
-                child: const Text('SAVE ENTRY', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1))
-              )
+                child: const Text('UPDATE ENTRY', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1))
+              ),
+            )
+          : Row(
+              children: [
+                Expanded(
+                  child: ElevatedButton(
+                    onPressed: () => _saveEntry(true), 
+                    style: ElevatedButton.styleFrom(backgroundColor: activeBg, elevation: 0, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), 
+                    child: Text('Save & New', style: TextStyle(color: activeColor, fontWeight: FontWeight.bold))
+                  )
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  flex: 2, 
+                  child: ElevatedButton(
+                    onPressed: () => _saveEntry(false), 
+                    style: ElevatedButton.styleFrom(backgroundColor: activeColor, elevation: 4, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))), 
+                    child: const Text('SAVE ENTRY', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, letterSpacing: 1))
+                  )
+                ),
+              ],
             ),
-          ],
-        ),
       ),
     );
   }
