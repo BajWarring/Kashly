@@ -15,12 +15,16 @@ class ManageOptionsScreen extends StatefulWidget {
 
 class _ManageOptionsScreenState extends State<ManageOptionsScreen> {
   List<FieldOption> _options = [];
-  final Set<String> _selectedOptionIds = {}; // Tracks selected items for deletion
+  final Set<String> _selectedOptionIds = {}; 
   bool _isLoading = true;
+  
+  // Basic protections: Don't allow user to delete default core options
+  late List<String> lockedItems;
 
   @override
   void initState() {
     super.initState();
+    lockedItems = widget.fieldName == 'Category' ? ['General'] : ['Cash'];
     _loadOptions();
   }
 
@@ -81,12 +85,13 @@ class _ManageOptionsScreenState extends State<ManageOptionsScreen> {
     _loadOptions();
   }
 
-  void _toggleSelection(String id) {
+  void _toggleSelection(FieldOption opt) {
+    if (lockedItems.contains(opt.value)) return; // Protected
     setState(() {
-      if (_selectedOptionIds.contains(id)) {
-        _selectedOptionIds.remove(id);
+      if (_selectedOptionIds.contains(opt.id)) {
+        _selectedOptionIds.remove(opt.id);
       } else {
-        _selectedOptionIds.add(id);
+        _selectedOptionIds.add(opt.id);
       }
     });
   }
@@ -98,10 +103,10 @@ class _ManageOptionsScreenState extends State<ManageOptionsScreen> {
     return Scaffold(
       appBar: AppBar(
         leading: isSelectionMode 
-          ? IconButton(icon: const Icon(Icons.close), onPressed: () => setState(() => _selectedOptionIds.clear()))
-          : IconButton(icon: const Icon(Icons.arrow_back), onPressed: () => Navigator.pop(context)),
-        title: Text(isSelectionMode ? '${_selectedOptionIds.length} Selected' : widget.fieldName),
-        backgroundColor: isSelectionMode ? accentLight : Colors.white,
+          ? IconButton(icon: const Icon(Icons.close, color: textDark), onPressed: () => setState(() => _selectedOptionIds.clear()))
+          : IconButton(icon: const Icon(Icons.arrow_back, color: textDark), onPressed: () => Navigator.pop(context)),
+        title: Text(isSelectionMode ? '${_selectedOptionIds.length} Selected' : widget.fieldName, style: TextStyle(color: textDark)),
+        backgroundColor: isSelectionMode ? accentLight : Colors.transparent,
         actions: [
           if (isSelectionMode)
             IconButton(icon: const Icon(Icons.delete_outline, color: danger), onPressed: _deleteSelected)
@@ -118,6 +123,7 @@ class _ManageOptionsScreenState extends State<ManageOptionsScreen> {
                   itemCount: _options.length,
                   itemBuilder: (context, index) {
                     final opt = _options[index];
+                    final isLocked = lockedItems.contains(opt.value);
                     final isSelected = _selectedOptionIds.contains(opt.id);
 
                     return Container(
@@ -129,14 +135,15 @@ class _ManageOptionsScreenState extends State<ManageOptionsScreen> {
                       ),
                       child: ListTile(
                         contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                        title: Text(opt.value, style: const TextStyle(fontWeight: FontWeight.bold, color: textDark)),
-                        trailing: isSelected ? const Icon(Icons.check_circle, color: accent) : null,
+                        title: Text(opt.value, style: TextStyle(fontWeight: FontWeight.bold, color: isLocked ? textMuted : textDark)),
+                        trailing: isLocked ? const Icon(Icons.lock_outline, size: 18, color: textLight) : (isSelected ? const Icon(Icons.check_circle, color: accent) : null),
                         
-                        // Exact behavior requested: Long press enters deletion mode, normal tap selects the item and returns
-                        onLongPress: () => _toggleSelection(opt.id),
+                        onLongPress: () => _toggleSelection(opt),
                         onTap: isSelectionMode 
-                          ? () => _toggleSelection(opt.id) 
-                          : () => Navigator.pop(context, opt.value),
+                          ? () => _toggleSelection(opt) 
+                          : () {
+                              if (!isLocked || isLocked) Navigator.pop(context, opt.value);
+                            },
                       ),
                     );
                   },
