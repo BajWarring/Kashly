@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'dart:math';
 
 import '../../core/models/book.dart';
 import '../../core/database_helper.dart';
 import '../../core/theme.dart'; 
 import '../cashbooks/cashbook_screen.dart'; 
-import 'widgets/add_book_sheet.dart'; 
-import 'book_details_screen.dart'; // We will create this file next
+import '../settings/settings_main.dart';
+import 'book_details_screen.dart'; 
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -259,56 +260,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-  // FIXED: UI perfectly matches the settings tab from dasboards_ui.dart.txt
-  Widget _buildSettingsTab() {
-    Widget buildGroup(String title, List<Widget> children) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Padding(padding: const EdgeInsets.only(left: 24, bottom: 8), child: Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textLight, letterSpacing: 1.2))),
-          Container(
-            margin: const EdgeInsets.symmetric(horizontal: 16, bottom: 24),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderCol)),
-            child: Column(children: children),
-          )
-        ],
-      );
-    }
-
-    Widget buildTile(IconData icon, String title, String? subtitle, Color iconCol, Color iconBg) {
-      return ListTile(
-        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        leading: Container(width: 40, height: 40, decoration: BoxDecoration(color: iconBg, borderRadius: BorderRadius.circular(12)), child: Icon(icon, color: iconCol, size: 20)),
-        title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textDark)),
-        subtitle: subtitle != null ? Text(subtitle, style: const TextStyle(fontSize: 12, color: textMuted, fontWeight: FontWeight.w500)) : null,
-        trailing: const Icon(Icons.chevron_right, color: textLight),
-        onTap: () {}, // Future sub-pages will go here
-      );
-    }
-
-    return ListView(
-      padding: const EdgeInsets.only(bottom: 100),
-      children: [
-        buildGroup('CLOUD BACKUP', [
-          buildTile(Icons.cloud, 'Sign in with Google', 'Securely backup to Google Drive', accent, accentLight),
-        ]),
-        buildGroup('DATA & ANALYTICS', [
-          buildTile(Icons.save_alt, 'Backup & Restore', null, textMuted, appBg),
-          const Divider(height: 1, color: borderCol),
-          buildTile(Icons.bar_chart, 'Reports', null, textMuted, appBg),
-        ]),
-        buildGroup('PREFERENCES', [
-          buildTile(Icons.palette, 'Appearance', null, textMuted, appBg),
-          const Divider(height: 1, color: borderCol),
-          buildTile(Icons.tune, 'Advanced', null, textMuted, appBg),
-          const Divider(height: 1, color: borderCol),
-          buildTile(Icons.info_outline, 'About', null, textMuted, appBg),
-        ]),
-        const Center(child: Text('Version 2.0.4', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textLight, letterSpacing: 1.5)))
-      ],
-    );
-  }
-
   void _showAddSheet() {
     showModalBottomSheet(
       context: context,
@@ -326,7 +277,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           children: [
             _buildHeader(),
-            Expanded(child: _currentIndex == 0 ? _buildHomeTab() : _buildSettingsTab()),
+            Expanded(child: _currentIndex == 0 ? _buildHomeTab() : const SettingsScreen()),
           ],
         ),
       ),
@@ -349,6 +300,120 @@ class _DashboardScreenState extends State<DashboardScreen> {
           destinations: const [
             NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home, color: accent), label: 'Home'),
             NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings, color: accent), label: 'Settings'),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// --- ADD BOOK SHEET ---
+class AddBookSheet extends StatefulWidget {
+  final Function(Book) onAdd;
+  const AddBookSheet({super.key, required this.onAdd});
+  @override
+  State<AddBookSheet> createState() => _AddBookSheetState();
+}
+
+class _AddBookSheetState extends State<AddBookSheet> {
+  final _nameCtrl = TextEditingController();
+  final _descCtrl = TextEditingController();
+  Currency _selectedCurrency = worldCurrencies[0];
+
+  void _submit() {
+    if (_nameCtrl.text.trim().isEmpty) return;
+    int now = DateTime.now().millisecondsSinceEpoch;
+    widget.onAdd(Book(
+      id: 'KB-${100000 + Random().nextInt(900000)}',
+      name: _nameCtrl.text.trim(),
+      description: _descCtrl.text.trim(),
+      balance: 0,
+      createdAt: now,
+      timestamp: now,
+      currency: _selectedCurrency.code,
+      icon: 'wallet',
+    ));
+    Navigator.pop(context);
+  }
+
+  void _pickCurrency() {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => ListView.builder(
+        shrinkWrap: true,
+        itemCount: worldCurrencies.length,
+        itemBuilder: (c, i) => ListTile(
+          leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(8)), child: Text(worldCurrencies[i].symbol, style: const TextStyle(fontWeight: FontWeight.bold))),
+          title: Text(worldCurrencies[i].code, style: const TextStyle(fontWeight: FontWeight.bold)),
+          subtitle: Text(worldCurrencies[i].name),
+          onTap: () {
+            setState(() => _selectedCurrency = worldCurrencies[i]);
+            Navigator.pop(ctx);
+          },
+        ),
+      )
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: EdgeInsets.only(bottom: MediaQuery.of(context).viewInsets.bottom),
+      child: Container(
+        decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(32))),
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+             Center(child: Container(width: 40, height: 5, decoration: BoxDecoration(color: borderCol, borderRadius: BorderRadius.circular(10)), margin: const EdgeInsets.only(bottom: 20))),
+            const Text('New Cashbook', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: textDark)),
+            const SizedBox(height: 24),
+            const Text('BOOK NAME', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textMuted, letterSpacing: 1)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _nameCtrl, autofocus: true,
+              decoration: InputDecoration(hintText: 'e.g. Project Alpha', filled: true, fillColor: appBg, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: accent, width: 2))),
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+            const SizedBox(height: 16),
+            const Text('DESCRIPTION (OPTIONAL)', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textMuted, letterSpacing: 1)),
+            const SizedBox(height: 8),
+            TextField(
+              controller: _descCtrl, maxLines: 2,
+              decoration: InputDecoration(hintText: 'Brief notes...', filled: true, fillColor: appBg, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: const BorderSide(color: accent, width: 2))),
+            ),
+            const SizedBox(height: 16),
+            const Text('BASE CURRENCY', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textMuted, letterSpacing: 1)),
+            const SizedBox(height: 8),
+            InkWell(
+              onTap: _pickCurrency,
+              borderRadius: BorderRadius.circular(12),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(12)),
+                child: Row(
+                  children: [
+                    Text(_selectedCurrency.symbol, style: const TextStyle(fontWeight: FontWeight.bold, color: textDark)),
+                    const SizedBox(width: 12),
+                    Text('${_selectedCurrency.code} - ${_selectedCurrency.name}', style: const TextStyle(fontWeight: FontWeight.w600, color: textDark)),
+                    const Spacer(),
+                    const Icon(Icons.keyboard_arrow_down, color: textMuted),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 32),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: _submit,
+                style: ElevatedButton.styleFrom(backgroundColor: accent, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
+                child: const Text('Create Book', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+              ),
+            )
           ],
         ),
       ),
