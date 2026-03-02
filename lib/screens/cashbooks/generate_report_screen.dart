@@ -1,6 +1,85 @@
 import 'package:flutter/material.dart';
 import '../../core/models/book.dart';
+import '../../core/models/field_option.dart';
+import '../../core/database_helper.dart';
 import '../../core/theme.dart';
+
+// Helper class for shared dialogs on this screen
+class FilterDialogs {
+  static Future<List<String>?> showSelectionDialog(BuildContext context, String title, List<String> options, bool isMulti) async {
+    List<String> selected = [];
+    String? singleSelected = options.isNotEmpty ? options.first : null;
+
+    return showDialog<List<String>>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setStateDialog) => Dialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          backgroundColor: Colors.white,
+          child: Padding(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(title, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textDark)),
+                const SizedBox(height: 16),
+                ConstrainedBox(
+                  constraints: BoxConstraints(maxHeight: MediaQuery.of(context).size.height * 0.4),
+                  child: ListView.builder(
+                    shrinkWrap: true,
+                    itemCount: options.length,
+                    itemBuilder: (c, i) {
+                      final opt = options[i];
+                      if (isMulti) {
+                        final isSelected = selected.contains(opt);
+                        return CheckboxListTile(
+                          value: isSelected,
+                          activeColor: accent,
+                          contentPadding: EdgeInsets.zero,
+                          title: Text(opt, style: const TextStyle(fontWeight: FontWeight.w600, color: textDark)),
+                          onChanged: (v) {
+                            setStateDialog(() {
+                              if (v == true) selected.add(opt); else selected.remove(opt);
+                            });
+                          },
+                        );
+                      } else {
+                        return InkWell(
+                          onTap: () => setStateDialog(() => singleSelected = opt),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 8),
+                            child: Row(
+                              children: [
+                                Icon(singleSelected == opt ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: singleSelected == opt ? accent : textMuted),
+                                const SizedBox(width: 12),
+                                Text(opt, style: const TextStyle(fontWeight: FontWeight.w600, color: textDark)),
+                              ],
+                            ),
+                          )
+                        );
+                      }
+                    },
+                  ),
+                ),
+                const SizedBox(height: 16),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: () => Navigator.pop(ctx, isMulti ? selected : [singleSelected!]),
+                    style: ElevatedButton.styleFrom(backgroundColor: accent, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
+                    child: const Text('Apply', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
+                  ),
+                )
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 
 class GenerateReportScreen extends StatefulWidget {
   final Book book;
@@ -13,7 +92,6 @@ class GenerateReportScreen extends StatefulWidget {
 class _GenerateReportScreenState extends State<GenerateReportScreen> {
   int _reportTypeIndex = 0;
   
-  // Display states for UI chips
   String _dateDisplay = 'All Time';
   String _typeDisplay = 'All Entries';
   String _catDisplay = 'All Categories';
@@ -79,38 +157,49 @@ class _GenerateReportScreenState extends State<GenerateReportScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // FILTERS - 3x2 Grid
           _buildSectionHeader('FILTERS'),
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderCol)),
             child: Column(
               children: [
-                // Row 1
                 Row(children: [
-                  Expanded(child: _buildFilterChip('DATE', _dateDisplay, Icons.calendar_today, () {})),
+                  Expanded(child: _buildFilterChip('DATE', _dateDisplay, Icons.calendar_today, () {
+                    // Date pickers implementation
+                    setState(() => _dateDisplay = 'Custom Date');
+                  })),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildFilterChip('TYPE', _typeDisplay, Icons.swap_vert, () {})),
+                  Expanded(child: _buildFilterChip('TYPE', _typeDisplay, Icons.swap_vert, () async {
+                    final res = await FilterDialogs.showSelectionDialog(context, 'Entry Type', ['All Entries', 'Cash In', 'Cash Out'], false);
+                    if (res != null && res.isNotEmpty) setState(() => _typeDisplay = res.first);
+                  })),
                 ]),
                 const SizedBox(height: 12),
-                // Row 2
                 Row(children: [
-                  Expanded(child: _buildFilterChip('CATEGORY', _catDisplay, Icons.category, () {})),
+                  Expanded(child: _buildFilterChip('CATEGORY', _catDisplay, Icons.category, () async {
+                    List<FieldOption> opts = await DatabaseHelper.instance.getAllOptions('Category');
+                    List<String> optNames = opts.map((e) => e.value).toList();
+                    final res = await FilterDialogs.showSelectionDialog(context, 'Categories', optNames, true);
+                    if (res != null && res.isNotEmpty) setState(() => _catDisplay = '${res.length} Selected');
+                  })),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildFilterChip('PAYMENT', _payDisplay, Icons.account_balance_wallet, () {})),
+                  Expanded(child: _buildFilterChip('PAYMENT', _payDisplay, Icons.account_balance_wallet, () async {
+                    List<FieldOption> opts = await DatabaseHelper.instance.getAllOptions('Payment Method');
+                    List<String> optNames = opts.map((e) => e.value).toList();
+                    final res = await FilterDialogs.showSelectionDialog(context, 'Payment Method', optNames, true);
+                    if (res != null && res.isNotEmpty) setState(() => _payDisplay = '${res.length} Selected');
+                  })),
                 ]),
                 const SizedBox(height: 12),
-                // Row 3
                 Row(children: [
                   Expanded(child: _buildFilterChip('SEARCH', 'Any text...', Icons.search, () {})),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildFilterChip('CUSTOM FIELD', 'Any', Icons.dashboard_customize, () {})), 
+                  Expanded(child: _buildFilterChip('CUSTOM FIELD', 'Any', Icons.dashboard_customize, () {})),
                 ]),
               ],
             ),
           ),
 
-          // REPORT TYPES
           _buildSectionHeader('REPORT TYPE'),
           Container(
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderCol)),
@@ -138,7 +227,7 @@ class _GenerateReportScreenState extends State<GenerateReportScreen> {
         child: SizedBox(
           width: double.infinity,
           child: FloatingActionButton.extended(
-            onPressed: () {},
+            onPressed: () {}, // Trigger actual PDF export here
             backgroundColor: accent, elevation: 4,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
