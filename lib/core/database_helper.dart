@@ -120,6 +120,18 @@ class DatabaseHelper {
     final result = await db.query('entries', where: 'bookId = ?', whereArgs: [bookId], orderBy: 'timestamp DESC');
     return result.map((map) => Entry.fromMap(map)).toList();
   }
+  // Get recent unique remarks for a specific book to use as suggestions
+  Future<List<String>> getRecentRemarks(String bookId, {int limit = 5}) async {
+    final db = await instance.database;
+    final result = await db.rawQuery('''
+      SELECT DISTINCT note FROM entries 
+      WHERE bookId = ? AND note != '' 
+      ORDER BY timestamp DESC LIMIT ?
+    ''', [bookId, limit]);
+    
+    return result.map((row) => row['note'] as String).toList();
+  }
+
 
   Future<Entry?> getEntryById(String id) async {
     final db = await instance.database;
