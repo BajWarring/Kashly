@@ -40,7 +40,12 @@ class FilterDialogs {
                           title: Text(opt, style: const TextStyle(fontWeight: FontWeight.w600, color: textDark)),
                           onChanged: (v) {
                             setStateDialog(() {
-                              if (v == true) selected.add(opt); else selected.remove(opt);
+                              // FIXED: Added curly braces for the linter
+                              if (v == true) {
+                                selected.add(opt);
+                              } else {
+                                selected.remove(opt);
+                              }
                             });
                           },
                         );
@@ -79,7 +84,6 @@ class FilterDialogs {
     );
   }
 }
-
 
 class GenerateReportScreen extends StatefulWidget {
   final Book book;
@@ -171,7 +175,9 @@ class _GenerateReportScreenState extends State<GenerateReportScreen> {
                   const SizedBox(width: 12),
                   Expanded(child: _buildFilterChip('TYPE', _typeDisplay, Icons.swap_vert, () async {
                     final res = await FilterDialogs.showSelectionDialog(context, 'Entry Type', ['All Entries', 'Cash In', 'Cash Out'], false);
-                    if (res != null && res.isNotEmpty) setState(() => _typeDisplay = res.first);
+                    if (res != null && res.isNotEmpty) {
+                      setState(() => _typeDisplay = res.first);
+                    }
                   })),
                 ]),
                 const SizedBox(height: 12),
@@ -179,15 +185,27 @@ class _GenerateReportScreenState extends State<GenerateReportScreen> {
                   Expanded(child: _buildFilterChip('CATEGORY', _catDisplay, Icons.category, () async {
                     List<FieldOption> opts = await DatabaseHelper.instance.getAllOptions('Category');
                     List<String> optNames = opts.map((e) => e.value).toList();
+                    
+                    // FIXED: Context protection after an async await
+                    if (!context.mounted) return; 
+                    
                     final res = await FilterDialogs.showSelectionDialog(context, 'Categories', optNames, true);
-                    if (res != null && res.isNotEmpty) setState(() => _catDisplay = '${res.length} Selected');
+                    if (res != null && res.isNotEmpty) {
+                      setState(() => _catDisplay = '${res.length} Selected');
+                    }
                   })),
                   const SizedBox(width: 12),
                   Expanded(child: _buildFilterChip('PAYMENT', _payDisplay, Icons.account_balance_wallet, () async {
                     List<FieldOption> opts = await DatabaseHelper.instance.getAllOptions('Payment Method');
                     List<String> optNames = opts.map((e) => e.value).toList();
+                    
+                    // FIXED: Context protection after an async await
+                    if (!context.mounted) return; 
+                    
                     final res = await FilterDialogs.showSelectionDialog(context, 'Payment Method', optNames, true);
-                    if (res != null && res.isNotEmpty) setState(() => _payDisplay = '${res.length} Selected');
+                    if (res != null && res.isNotEmpty) {
+                      setState(() => _payDisplay = '${res.length} Selected');
+                    }
                   })),
                 ]),
                 const SizedBox(height: 12),
