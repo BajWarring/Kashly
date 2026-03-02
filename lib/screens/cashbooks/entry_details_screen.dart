@@ -248,7 +248,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
           ),
           const SizedBox(height: 24),
 
-          // EDIT HISTORY
+                   // EDIT HISTORY
           const Padding(padding: EdgeInsets.only(left: 8, bottom: 12), child: Text('EDIT HISTORY', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textLight, letterSpacing: 1.2))),
           
           if (_isLoadingLogs)
@@ -260,29 +260,33 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
               child: const Text('No edit history found.', style: TextStyle(color: textMuted, fontWeight: FontWeight.w500)),
             )
           else
-            // Iterate over the grouped timestamps
+            // Compact mapping for logs
             ...groupedLogs.keys.map((timestamp) {
               final logs = groupedLogs[timestamp]!;
               return Container(
-                margin: const EdgeInsets.only(bottom: 12), padding: const EdgeInsets.all(16),
+                margin: const EdgeInsets.only(bottom: 8), 
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(children: [const Icon(Icons.history, size: 14, color: textLight), const SizedBox(width: 6), Text(_formatDateTime(timestamp), style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted))]),
-                    const SizedBox(height: 12),
-                    // Iterate over the changes made at this specific timestamp
+                    Row(children: [const Icon(Icons.history, size: 12, color: textLight), const SizedBox(width: 6), Text(_formatDateTime(timestamp), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textMuted))]),
+                    const SizedBox(height: 8),
                     ...logs.map((log) => Padding(
-                      padding: const EdgeInsets.only(bottom: 8.0),
+                      padding: const EdgeInsets.only(bottom: 6.0),
                       child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+                        crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          SizedBox(width: 70, child: Text(log.field, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textDark))),
-                          Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                            Text(log.oldValue, style: const TextStyle(fontSize: 13, color: danger, decoration: TextDecoration.lineThrough, fontWeight: FontWeight.w500)),
-                            const SizedBox(height: 2),
-                            Text(log.newValue, style: const TextStyle(fontSize: 13, color: success, fontWeight: FontWeight.bold)),
-                          ]))
+                          SizedBox(width: 75, child: Text(log.field, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textDark))),
+                          Expanded(
+                            child: Row(
+                              children: [
+                                Flexible(child: Text(log.oldValue, style: const TextStyle(fontSize: 12, color: danger, decoration: TextDecoration.lineThrough, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
+                                const Padding(padding: EdgeInsets.symmetric(horizontal: 6), child: Icon(Icons.arrow_forward, size: 12, color: textLight)),
+                                Flexible(child: Text(log.newValue, style: const TextStyle(fontSize: 12, color: success, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+                              ]
+                            )
+                          )
                         ],
                       ),
                     ))
