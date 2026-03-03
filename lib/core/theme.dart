@@ -12,6 +12,8 @@ const Color danger = Color(0xFFE11D48);
 const Color dangerLight = Color(0xFFFFF1F2);
 const Color success = Color(0xFF10B981);
 const Color successLight = Color(0xFFECFDF5);
+const Color warning = Color(0xFFF59E0B);      // NEW
+const Color warningLight = Color(0xFFFEF3C7); // NEW
 const Color borderCol = Color(0xFFE2E8F0);
 
 // --- ICONS ---
