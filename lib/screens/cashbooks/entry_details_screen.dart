@@ -21,7 +21,8 @@ class EntryDetailsScreen extends StatefulWidget {
 class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
   late Entry _currentEntry;
   Map<int, List<EditLog>> groupedLogs = {};
-  Map<String, String> _customFieldNames = {};
+  // FIXED: Added 'final' keyword to satisfy the linter
+  final Map<String, String> _customFieldNames = {};
   bool _isLoadingLogs = true;
 
   @override
@@ -171,7 +172,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
                   children: [
                     Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: eBg, borderRadius: BorderRadius.circular(8)), child: Text('CASH ${_currentEntry.type.toUpperCase()}', style: TextStyle(color: eColor, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1))),
                     
-                    // FIXED: Displaying actual Entry ID below Date/Time
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -195,7 +195,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
                     _buildGridItem('Category', _currentEntry.category, Icons.category),
                     _buildGridItem('Payment Mode', _currentEntry.paymentMethod, Icons.account_balance),
                     
-                    // FIXED: Maps custom field IDs to their actual Names given by the user
                     ...cFields.entries.map((e) {
                       String fieldName = _customFieldNames[e.key] ?? 'Custom Field';
                       return _buildGridItem(fieldName, e.value.toString(), Icons.label_important);
