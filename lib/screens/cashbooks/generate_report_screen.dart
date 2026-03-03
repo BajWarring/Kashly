@@ -4,7 +4,6 @@ import '../../core/models/field_option.dart';
 import '../../core/database_helper.dart';
 import '../../core/theme.dart';
 
-// Helper class for shared dialogs on this screen
 class FilterDialogs {
   static Future<List<String>?> showSelectionDialog(BuildContext context, String title, List<String> options, bool isMulti) async {
     List<String> selected = [];
@@ -40,7 +39,6 @@ class FilterDialogs {
                           title: Text(opt, style: const TextStyle(fontWeight: FontWeight.w600, color: textDark)),
                           onChanged: (v) {
                             setStateDialog(() {
-                              // FIXED: Added curly braces for the linter
                               if (v == true) {
                                 selected.add(opt);
                               } else {
@@ -169,7 +167,6 @@ class _GenerateReportScreenState extends State<GenerateReportScreen> {
               children: [
                 Row(children: [
                   Expanded(child: _buildFilterChip('DATE', _dateDisplay, Icons.calendar_today, () {
-                    // Date pickers implementation
                     setState(() => _dateDisplay = 'Custom Date');
                   })),
                   const SizedBox(width: 12),
@@ -185,10 +182,7 @@ class _GenerateReportScreenState extends State<GenerateReportScreen> {
                   Expanded(child: _buildFilterChip('CATEGORY', _catDisplay, Icons.category, () async {
                     List<FieldOption> opts = await DatabaseHelper.instance.getAllOptions('Category');
                     List<String> optNames = opts.map((e) => e.value).toList();
-                    
-                    // FIXED: Context protection after an async await
                     if (!context.mounted) return; 
-                    
                     final res = await FilterDialogs.showSelectionDialog(context, 'Categories', optNames, true);
                     if (res != null && res.isNotEmpty) {
                       setState(() => _catDisplay = '${res.length} Selected');
@@ -198,10 +192,7 @@ class _GenerateReportScreenState extends State<GenerateReportScreen> {
                   Expanded(child: _buildFilterChip('PAYMENT', _payDisplay, Icons.account_balance_wallet, () async {
                     List<FieldOption> opts = await DatabaseHelper.instance.getAllOptions('Payment Method');
                     List<String> optNames = opts.map((e) => e.value).toList();
-                    
-                    // FIXED: Context protection after an async await
                     if (!context.mounted) return; 
-                    
                     final res = await FilterDialogs.showSelectionDialog(context, 'Payment Method', optNames, true);
                     if (res != null && res.isNotEmpty) {
                       setState(() => _payDisplay = '${res.length} Selected');
@@ -245,7 +236,7 @@ class _GenerateReportScreenState extends State<GenerateReportScreen> {
         child: SizedBox(
           width: double.infinity,
           child: FloatingActionButton.extended(
-            onPressed: () {}, // Trigger actual PDF export here
+            onPressed: () {}, 
             backgroundColor: accent, elevation: 4,
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             icon: const Icon(Icons.picture_as_pdf, color: Colors.white),
