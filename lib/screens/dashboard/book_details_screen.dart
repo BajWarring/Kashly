@@ -50,7 +50,6 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
             Wrap(
               spacing: 16, runSpacing: 16,
               children: [
-                // Custom Upload Button First
                 InkWell(
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Custom Image upload feature coming soon!')));
@@ -62,7 +61,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                     child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.upload, color: textMuted, size: 20), SizedBox(height: 4), Text('Custom', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: textMuted))]),
                   ),
                 ),
-                // Standard Icons
+                // FIXED: Removed the unnecessary .toList() at the end of this map
                 ...availableIcons.keys.map((key) => InkWell(
                   onTap: () async {
                     setState(() => _book.icon = key);
@@ -76,7 +75,7 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                     decoration: BoxDecoration(color: _book.icon == key ? accent : appBg, borderRadius: BorderRadius.circular(16), boxShadow: _book.icon == key ? [BoxShadow(color: accent.withValues(alpha: 0.3), blurRadius: 8, offset: const Offset(0, 4))] : null),
                     child: Icon(availableIcons[key], color: _book.icon == key ? Colors.white : textMuted),
                   ),
-                )).toList(),
+                )),
               ]
             )
           ],
@@ -185,7 +184,6 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: borderCol)),
             child: Column(
               children: [
-                // Name Row - FIXED to use Save/Cancel buttons like Description
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
@@ -219,8 +217,6 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                   ),
                 ),
                 const Divider(height: 1, color: borderCol),
-                
-                // Desc Row
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
