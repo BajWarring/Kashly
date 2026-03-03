@@ -13,6 +13,9 @@ class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
   static Database? _database;
 
+  // Persists Tip Dialog state during the app session
+  static bool hideLinkTip = false;
+
   DatabaseHelper._init();
 
   Future<Database> get database async {
@@ -25,19 +28,11 @@ class DatabaseHelper {
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
     final path = join(documentsDirectory.path, filePath);
 
-    // UPGRADED TO VERSION 2 FOR SUB-BOOKS
     return await openDatabase(
       path,
-      version: 2,
+      version: 1,
       onCreate: _createDB,
-      onUpgrade: _onUpgrade,
     );
-  }
-
-  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    if (oldVersion < 2) {
-      await db.execute('ALTER TABLE cashbooks ADD COLUMN parentId TEXT');
-    }
   }
 
   Future _createDB(Database db, int version) async {
@@ -50,8 +45,7 @@ class DatabaseHelper {
         createdAt INTEGER NOT NULL,
         timestamp INTEGER NOT NULL,
         currency TEXT NOT NULL,
-        icon TEXT NOT NULL,
-        parentId TEXT
+        icon TEXT NOT NULL
       )
     ''');
 
@@ -107,7 +101,7 @@ class DatabaseHelper {
   }
 
   // ==========================================
-  // CASHBOOKS & SUB-BOOKS
+  // CASHBOOKS
   // ==========================================
   Future<void> insertBook(Book book) async {
     final db = await instance.database;
@@ -116,14 +110,7 @@ class DatabaseHelper {
 
   Future<List<Book>> getAllBooks() async {
     final db = await instance.database;
-    // Hides sub-books from the main dashboard
-    final result = await db.query('cashbooks', where: 'parentId IS NULL', orderBy: 'timestamp DESC');
-    return result.map((map) => Book.fromMap(map)).toList();
-  }
-
-  Future<List<Book>> getSubBooks(String parentId) async {
-    final db = await instance.database;
-    final result = await db.query('cashbooks', where: 'parentId = ?', whereArgs: [parentId], orderBy: 'timestamp DESC');
+    final result = await db.query('cashbooks', orderBy: 'timestamp DESC');
     return result.map((map) => Book.fromMap(map)).toList();
   }
 
@@ -144,18 +131,11 @@ class DatabaseHelper {
     // Safely cascade delete everything inside the book
     await db.delete('entries', where: 'bookId = ?', whereArgs: [id]);
     await db.delete('custom_fields', where: 'bookId = ?', whereArgs: [id]);
-    
-    // Recursive delete sub-books
-    final subs = await getSubBooks(id);
-    for (var sb in subs) {
-      await deleteBook(sb.id);
-    }
-    
     await db.delete('cashbooks', where: 'id = ?', whereArgs: [id]);
   }
 
   // ==========================================
-  // ENTRIES & DOUBLE ENTRY LOGIC
+  // ENTRIES & DOUBLE ENTRY LINKING LOGIC
   // ==========================================
   Future<List<Entry>> getEntriesForBook(String bookId) async {
     final db = await instance.database;
@@ -189,11 +169,9 @@ class DatabaseHelper {
   Future<Entry?> getLinkedEntry(String entryId) async {
     final db = await instance.database;
     
-    // Check if another entry links to this one
     final r1 = await db.query('entries', where: 'linkedEntryId = ?', whereArgs: [entryId]);
     if (r1.isNotEmpty) return Entry.fromMap(r1.first);
     
-    // Check if this entry links to another one
     final current = await getEntryById(entryId);
     if (current != null && current.linkedEntryId != null) {
       final r2 = await db.query('entries', where: 'id = ?', whereArgs: [current.linkedEntryId]);
@@ -219,7 +197,10 @@ class DatabaseHelper {
 
   Future<List<String>> getRecentRemarks(String bookId, {int limit = 5}) async {
     final db = await instance.database;
-    final result = await db.rawQuery('SELECT DISTINCT note FROM entries WHERE bookId = ? AND note != "" ORDER BY timestamp DESC LIMIT ?', [bookId, limit]);
+    final result = await db.rawQuery(
+      'SELECT DISTINCT note FROM entries WHERE bookId = ? AND note != "" ORDER BY timestamp DESC LIMIT ?', 
+      [bookId, limit]
+    );
     return result.map((row) => row['note'] as String).toList();
   }
 
