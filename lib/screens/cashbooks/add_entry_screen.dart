@@ -119,6 +119,32 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     });
   }
 
+  // FIXED: Restored Missing Methods
+  Future<void> _openManageOptions(String fieldName) async {
+    final selectedFromMore = await Navigator.push(context, MaterialPageRoute(builder: (_) => ManageOptionsScreen(fieldName: fieldName)));
+    await _loadInitialData();
+    if (!mounted) return; 
+    if (selectedFromMore != null && selectedFromMore is String) {
+      setState(() {
+        if (fieldName == 'Category') selectedCategory = selectedFromMore;
+        if (fieldName == 'Payment Method') selectedPayment = selectedFromMore;
+      });
+    }
+  }
+
+  String _formatDate(DateTime d) => DateFormat('MMM d, yyyy').format(d);
+  String _formatTime(TimeOfDay t) => DateFormat('h:mm a').format(DateTime(2020, 1, 1, t.hour, t.minute));
+
+  Future<void> _pickDateTime() async {
+    final date = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2000), lastDate: DateTime(2100), builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: ColorScheme.light(primary: activeColor, onPrimary: Colors.white, onSurface: textDark)), child: child!));
+    if (date != null) { setState(() => _selectedDate = date); _pickTime(); }
+  }
+
+  Future<void> _pickTime() async {
+    final time = await showTimePicker(context: context, initialTime: _selectedTime, builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: ColorScheme.light(primary: activeColor, onPrimary: Colors.white, onSurface: textDark)), child: child!));
+    if (time != null) setState(() => _selectedTime = time);
+  }
+
   void _handleSubBookSelection(Book? book) async {
     if (book == null) {
       setState(() => _selectedSubBook = null);
@@ -337,16 +363,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
         ],
       ),
     );
-  }
-
-  Future<void> _pickDateTime() async {
-    final date = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2000), lastDate: DateTime(2100), builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: ColorScheme.light(primary: activeColor, onPrimary: Colors.white, onSurface: textDark)), child: child!));
-    if (date != null) { setState(() => _selectedDate = date); _pickTime(); }
-  }
-
-  Future<void> _pickTime() async {
-    final time = await showTimePicker(context: context, initialTime: _selectedTime, builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: ColorScheme.light(primary: activeColor, onPrimary: Colors.white, onSurface: textDark)), child: child!));
-    if (time != null) setState(() => _selectedTime = time);
   }
 
   @override
