@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 
 import '../../../core/models/book.dart';
-import '../../../core/models/currency.dart'; // FIXED: Imported Currency Model
+import '../../../core/models/currency.dart';
 import '../../../core/theme.dart';
 
 class AddBookSheet extends StatefulWidget {
@@ -52,7 +52,13 @@ class _AddBookSheetState extends State<AddBookSheet> {
                   padding: const EdgeInsets.all(16),
                   child: TextField(
                     autofocus: true,
-                    decoration: InputDecoration(hintText: 'Search currency...', prefixIcon: const Icon(Icons.search), filled: true, fillColor: appBg, border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none)),
+                    decoration: InputDecoration(
+                      hintText: 'Search currency...', 
+                      prefixIcon: const Icon(Icons.search), 
+                      filled: true, 
+                      fillColor: appBg, 
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none)
+                    ),
                     onChanged: (val) => setModalState(() => _searchQuery = val),
                   ),
                 ),
