@@ -21,18 +21,21 @@ class EntryDetailsScreen extends StatefulWidget {
 class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
   late Entry _currentEntry;
   Map<int, List<EditLog>> groupedLogs = {};
+  Map<String, String> _customFieldNames = {};
   bool _isLoadingLogs = true;
 
   @override
   void initState() {
     super.initState();
     _currentEntry = widget.entry;
-    _loadEditHistory();
+    _loadData();
   }
 
-  Future<void> _loadEditHistory() async {
+  Future<void> _loadData() async {
     setState(() => _isLoadingLogs = true);
+    
     final logs = await DatabaseHelper.instance.getLogsForEntry(_currentEntry.id);
+    final cfs = await DatabaseHelper.instance.getCustomFieldsForBook(widget.book.id);
     
     Map<int, List<EditLog>> grouped = {};
     for (var log in logs) {
@@ -44,6 +47,9 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
 
     if (!mounted) return;
     setState(() {
+      for (var cf in cfs) {
+        _customFieldNames[cf.id] = cf.name;
+      }
       groupedLogs = grouped;
       _isLoadingLogs = false;
     });
@@ -60,7 +66,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
       if (!mounted) return; 
       if (updatedEntry != null) {
         setState(() => _currentEntry = updatedEntry);
-        _loadEditHistory(); 
+        _loadData(); 
       }
     }
   }
@@ -139,7 +145,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
 
     Map<String, dynamic> cFields = {};
     if (_currentEntry.customFields.isNotEmpty) {
-      // FIXED: Used _ to explicitly ignore the caught error for the linter
       try { cFields = _currentEntry.customFields; } catch(_) { /* ignore map error */ }
     }
 
@@ -162,9 +167,19 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
               children: [
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: eBg, borderRadius: BorderRadius.circular(8)), child: Text('CASH ${_currentEntry.type.toUpperCase()}', style: TextStyle(color: eColor, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1))),
-                    Text('$dateStr • $timeStr', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted)),
+                    
+                    // FIXED: Displaying actual Entry ID below Date/Time
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.end,
+                      children: [
+                        Text('$dateStr • $timeStr', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted)),
+                        const SizedBox(height: 2),
+                        Text('ID: ${_currentEntry.id}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: textLight)),
+                      ],
+                    ),
                   ],
                 ),
                 const SizedBox(height: 20),
@@ -179,7 +194,12 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
                   children: [
                     _buildGridItem('Category', _currentEntry.category, Icons.category),
                     _buildGridItem('Payment Mode', _currentEntry.paymentMethod, Icons.account_balance),
-                    ...cFields.entries.map((e) => _buildGridItem(e.key, e.value.toString(), Icons.label_important)),
+                    
+                    // FIXED: Maps custom field IDs to their actual Names given by the user
+                    ...cFields.entries.map((e) {
+                      String fieldName = _customFieldNames[e.key] ?? 'Custom Field';
+                      return _buildGridItem(fieldName, e.value.toString(), Icons.label_important);
+                    }),
                   ],
                 )
               ],
