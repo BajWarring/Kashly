@@ -7,7 +7,6 @@ class Book {
   int timestamp;
   String currency;
   String icon;
-  String? parentId; // NEW: Defines if this is a Sub-Book
 
   Book({
     required this.id,
@@ -18,7 +17,6 @@ class Book {
     required this.timestamp,
     required this.currency,
     required this.icon,
-    this.parentId,
   });
 
   Map<String, dynamic> toMap() {
@@ -31,7 +29,6 @@ class Book {
       'timestamp': timestamp,
       'currency': currency,
       'icon': icon,
-      'parentId': parentId,
     };
   }
 
@@ -45,7 +42,6 @@ class Book {
       timestamp: map['timestamp'],
       currency: map['currency'],
       icon: map['icon'],
-      parentId: map['parentId'],
     );
   }
 }
