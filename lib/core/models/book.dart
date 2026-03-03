@@ -7,6 +7,7 @@ class Book {
   int timestamp;
   String currency;
   String icon;
+  String? parentId; // NEW: Defines if this is a Sub-Book
 
   Book({
     required this.id,
@@ -17,9 +18,9 @@ class Book {
     required this.timestamp,
     required this.currency,
     required this.icon,
+    this.parentId,
   });
 
-  // Convert a Book into a Map to store in SQLite
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -30,20 +31,21 @@ class Book {
       'timestamp': timestamp,
       'currency': currency,
       'icon': icon,
+      'parentId': parentId,
     };
   }
 
-  // Extract a Book object from a SQLite Map
   factory Book.fromMap(Map<String, dynamic> map) {
     return Book(
       id: map['id'],
       name: map['name'],
-      description: map['description'],
+      description: map['description'] ?? '',
       balance: map['balance'],
       createdAt: map['createdAt'],
       timestamp: map['timestamp'],
       currency: map['currency'],
       icon: map['icon'],
+      parentId: map['parentId'],
     );
   }
 }
