@@ -169,6 +169,17 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       await logIfChanged('Payment Method', old.paymentMethod, selectedPayment);
       await logIfChanged('Remark', old.note, _remarkCtrl.text.trim());
 
+      // FIXED: Iterating over Custom Fields to create logs using their actual Name
+      Map<String, dynamic> oldCF = {};
+      if (old.customFields.isNotEmpty) {
+        try { oldCF = old.customFields; } catch(_) {}
+      }
+      for (var cf in _customFieldsData) {
+        String oldVal = oldCF[cf.id]?.toString() ?? '';
+        String newVal = _customFieldValues[cf.id] ?? '';
+        await logIfChanged(cf.name, oldVal, newVal); 
+      }
+
       await DatabaseHelper.instance.updateEntry(entry);
     } else {
       await DatabaseHelper.instance.insertEntry(entry);
@@ -204,7 +215,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       onTap: () => onSelect(label), borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        // Increased unselected visibility
         decoration: BoxDecoration(color: isSelected ? activeBg : Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: isSelected ? activeColor : borderCol, width: 1.5)),
         child: Text(label, style: TextStyle(fontWeight: FontWeight.w600, color: isSelected ? activeColor : textDark)),
       ),
@@ -224,7 +234,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           child: DropdownButton<String>(
             isExpanded: true,
             value: opts.contains(val) ? val : null,
-            hint: Text('Select option', style: TextStyle(color: textMuted)),
+            hint: const Text('Select option', style: TextStyle(color: textMuted)),
             items: opts.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList(),
             onChanged: (newValue) => setState(() => _customFieldValues[field.id] = newValue!),
           ),
@@ -246,7 +256,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             isExpanded: true,
             icon: const Icon(Icons.contact_page, color: textMuted),
             value: contacts.contains(val) ? val : null,
-            hint: Text('Select from Contacts', style: TextStyle(color: textMuted)),
+            hint: const Text('Select from Contacts', style: TextStyle(color: textMuted)),
             items: contacts.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList(),
             onChanged: (newValue) => setState(() => _customFieldValues[field.id] = newValue!),
           ),
@@ -256,7 +266,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       inputWidget = TextField(
         onChanged: (text) => _customFieldValues[field.id] = text,
         controller: TextEditingController(text: val)..selection = TextSelection.collapsed(offset: val.length),
-        decoration: InputDecoration(hintText: 'Enter ${field.name}', hintStyle: TextStyle(color: textMuted), filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol, width: 1.5)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol, width: 1.5)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: activeColor, width: 2))),
+        decoration: InputDecoration(hintText: 'Enter ${field.name}', hintStyle: const TextStyle(color: textMuted), filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol, width: 1.5)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol, width: 1.5)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: activeColor, width: 2))),
       );
     }
 
@@ -304,14 +314,12 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             controller: _amountCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true),
             style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: textDark),
             decoration: InputDecoration(
-              // FIXED: Prefix icon visible at all times
               prefixIcon: Padding(
                 padding: const EdgeInsets.only(left: 16, right: 8),
                 child: Column(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [Text(_currencySymbol, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: textDark))]),
               ),
-              hintText: '0.00', hintStyle: TextStyle(color: textLight),
+              hintText: '0.00', hintStyle: const TextStyle(color: textLight),
               filled: true, fillColor: Colors.white, 
-              // FIXED: Padding identically matched to Remarks
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol, width: 1.5)),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol, width: 1.5)),
@@ -325,7 +333,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           TextField(
             controller: _remarkCtrl, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textDark),
             decoration: InputDecoration(
-              hintText: 'What was this for?', hintStyle: TextStyle(color: textMuted, fontWeight: FontWeight.normal),
+              hintText: 'What was this for?', hintStyle: const TextStyle(color: textMuted, fontWeight: FontWeight.normal),
               filled: true, fillColor: Colors.white,
               contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol, width: 1.5)),
