@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+
 import '../../core/models/book.dart';
 import '../../core/database_helper.dart';
 import '../../core/theme.dart';
@@ -45,23 +48,31 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Choose Icon', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text('Choose Icon or Image', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 20),
             Wrap(
               spacing: 16, runSpacing: 16,
               children: [
+                // Custom Upload Button
                 InkWell(
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Custom Image upload feature coming soon!')));
+                  onTap: () async {
+                    final picker = ImagePicker();
+                    final pickedFile = await picker.pickImage(source: ImageSource.gallery);
+                    if (pickedFile != null) {
+                      setState(() => _book.icon = pickedFile.path);
+                      await DatabaseHelper.instance.updateBook(_book);
+                    }
+                    if (!ctx.mounted) return;
+                    Navigator.pop(ctx);
                   },
                   borderRadius: BorderRadius.circular(16),
                   child: Container(
                     width: 64, height: 64,
                     decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol, style: BorderStyle.solid)),
-                    child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.upload, color: textMuted, size: 20), SizedBox(height: 4), Text('Custom', style: TextStyle(fontSize: 9, fontWeight: FontWeight.bold, color: textMuted))]),
+                    child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.upload, color: textMuted, size: 20), SizedBox(height: 4), Text('Gallery', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: textMuted))]),
                   ),
                 ),
-                // FIXED: Removed the unnecessary .toList() at the end of this map
+                // Standard Icons
                 ...availableIcons.keys.map((key) => InkWell(
                   onTap: () async {
                     setState(() => _book.icon = key);
@@ -140,6 +151,22 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
     return DateFormat('MMM d, yyyy • h:mm a').format(DateTime.fromMillisecondsSinceEpoch(ms));
   }
 
+  Widget _buildBookCover() {
+    if (availableIcons.containsKey(_book.icon)) {
+      return Icon(availableIcons[_book.icon], color: accent, size: 32);
+    } else {
+      // It's a custom file path
+      return ClipRRect(
+        borderRadius: BorderRadius.circular(16),
+        child: Image.file(
+          File(_book.icon),
+          width: 64, height: 64, fit: BoxFit.cover,
+          errorBuilder: (ctx, err, stack) => const Icon(Icons.broken_image, color: textMuted),
+        ),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -157,8 +184,12 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                   child: Stack(
                     alignment: Alignment.center,
                     children: [
-                      Container(width: 64, height: 64, decoration: BoxDecoration(color: accentLight, borderRadius: BorderRadius.circular(16)), child: Icon(availableIcons[_book.icon] ?? Icons.book, color: accent, size: 32)),
-                      Container(width: 64, height: 64, decoration: BoxDecoration(color: Colors.black12, borderRadius: BorderRadius.circular(16)), child: const Icon(Icons.camera_alt, color: Colors.white70, size: 24)),
+                      Container(
+                        width: 64, height: 64, 
+                        decoration: BoxDecoration(color: accentLight, borderRadius: BorderRadius.circular(16)), 
+                        child: _buildBookCover(),
+                      ),
+                      Container(width: 64, height: 64, decoration: BoxDecoration(color: Colors.black26, borderRadius: BorderRadius.circular(16)), child: const Icon(Icons.camera_alt, color: Colors.white70, size: 24)),
                     ],
                   ),
                 ),
