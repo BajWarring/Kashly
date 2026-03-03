@@ -43,7 +43,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   List<CustomField> _customFieldsData = [];
   final Map<String, String> _customFieldValues = {};
 
-  // SUB-BOOKS DOUBLE ENTRY SYSTEM
   List<Book> _availableSubBooks = [];
   Book? _selectedSubBook;
 
@@ -81,12 +80,10 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     final remarks = await DatabaseHelper.instance.getRecentRemarks(widget.book.id);
     final cFields = await DatabaseHelper.instance.getCustomFieldsForBook(widget.book.id);
     
-    // Only fetch sub books if we are inside a MAIN book
     if (widget.book.parentId == null) {
       _availableSubBooks = await DatabaseHelper.instance.getSubBooks(widget.book.id);
     }
     
-    // Detect if this edit entry was previously linked to a sub-book
     if (isEdit) {
       Entry? linked = await DatabaseHelper.instance.getLinkedEntry(widget.existingEntry!.id);
       if (linked != null) {
@@ -119,7 +116,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     });
   }
 
-  // FIXED: Restored Missing Methods
   Future<void> _openManageOptions(String fieldName) async {
     final selectedFromMore = await Navigator.push(context, MaterialPageRoute(builder: (_) => ManageOptionsScreen(fieldName: fieldName)));
     await _loadInitialData();
@@ -143,6 +139,70 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   Future<void> _pickTime() async {
     final time = await showTimePicker(context: context, initialTime: _selectedTime, builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: ColorScheme.light(primary: activeColor, onPrimary: Colors.white, onSurface: textDark)), child: child!));
     if (time != null) setState(() => _selectedTime = time);
+  }
+
+  // --- TOP DOWN ANIMATED PICKER ---
+  void _showTopSubBookPicker() {
+    if (widget.book.parentId != null) return; // Prevent sub-books from selecting other sub-books
+
+    showGeneralDialog(
+      context: context,
+      barrierDismissible: true,
+      barrierLabel: 'Dismiss',
+      barrierColor: Colors.black.withValues(alpha: 0.3),
+      transitionDuration: const Duration(milliseconds: 300),
+      pageBuilder: (context, anim1, anim2) {
+        return Align(
+          alignment: Alignment.topCenter,
+          child: Padding(
+            padding: const EdgeInsets.only(top: 60, left: 16, right: 16),
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, offset: Offset(0, 4))]),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Text('Select Transfer Account', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.block, size: 16, color: textMuted)),
+                      title: const Text('None (No Transfer)', style: TextStyle(fontWeight: FontWeight.w600, color: textMuted)),
+                      onTap: () { Navigator.pop(context); _handleSubBookSelection(null); }
+                    ),
+                    if (_availableSubBooks.isNotEmpty) const Divider(height: 1, color: borderCol),
+                    ..._availableSubBooks.map((b) => Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        ListTile(
+                          leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: accentLight, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.account_tree, size: 16, color: accent)),
+                          title: Text(b.name, style: const TextStyle(fontWeight: FontWeight.bold, color: textDark)),
+                          trailing: _selectedSubBook?.id == b.id ? const Icon(Icons.check_circle, color: accent) : null,
+                          onTap: () { Navigator.pop(context); _handleSubBookSelection(b); }
+                        ),
+                        const Divider(height: 1, color: borderCol),
+                      ],
+                    )),
+                    ListTile(
+                      leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: textDark, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.add, size: 16, color: Colors.white)),
+                      title: const Text('Create New Sub Book', style: TextStyle(fontWeight: FontWeight.bold, color: textDark)),
+                      onTap: () { Navigator.pop(context); _handleSubBookSelection(Book(id: 'ADD_NEW', name: '', description: '', balance: 0, createdAt: 0, timestamp: 0, currency: '', icon: '')); }
+                    ),
+                    const SizedBox(height: 8),
+                  ]
+                )
+              )
+            )
+          )
+        );
+      },
+      transitionBuilder: (context, anim1, anim2, child) {
+        return SlideTransition(
+          position: Tween<Offset>(begin: const Offset(0, -0.1), end: Offset.zero).animate(CurvedAnimation(parent: anim1, curve: Curves.easeOutCubic)),
+          child: FadeTransition(opacity: anim1, child: child),
+        );
+      }
+    );
   }
 
   void _handleSubBookSelection(Book? book) async {
@@ -189,63 +249,95 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     
     final entry = Entry(
       id: isEdit ? widget.existingEntry!.id : 'ENT-${Random().nextInt(999999)}',
-      bookId: widget.book.id,
-      type: typeStr,
-      amount: amount,
-      note: _remarkCtrl.text.trim(),
-      category: selectedCategory,
-      paymentMethod: selectedPayment,
-      timestamp: combinedDate.millisecondsSinceEpoch,
+      bookId: widget.book.id, type: typeStr, amount: amount, note: _remarkCtrl.text.trim(),
+      category: selectedCategory, paymentMethod: selectedPayment, timestamp: combinedDate.millisecondsSinceEpoch,
       linkedEntryId: isEdit ? widget.existingEntry!.linkedEntryId : null,
       customFields: Map<String, dynamic>.from(_customFieldValues),
     );
 
+    // HELPER: Records Edit Logs specifically for the requested Entry ID
+    Future<void> logChange(String targetEntryId, String field, String oldVal, String newVal) async {
+      if (oldVal != newVal) {
+        await DatabaseHelper.instance.insertEditLog(EditLog(
+          id: 'LOG-${Random().nextInt(999999)}', entryId: targetEntryId, field: field, 
+          oldValue: oldVal.isEmpty ? 'Empty' : oldVal, newValue: newVal.isEmpty ? 'Empty' : newVal, 
+          timestamp: DateTime.now().millisecondsSinceEpoch
+        ));
+      }
+    }
+
     if (isEdit) {
       final old = widget.existingEntry!;
-      double oldSignedAmount = old.type == 'in' ? old.amount : -old.amount;
-      double newSignedAmount = typeStr == 'in' ? amount : -amount;
-      widget.book.balance += (newSignedAmount - oldSignedAmount);
+      
+      // 1. Revert original balance completely
+      widget.book.balance -= (old.type == 'in' ? old.amount : -old.amount);
+      
+      // 2. Generate Logs for Main Entry
+      final oldDateObj = DateTime.fromMillisecondsSinceEpoch(old.timestamp);
+      await logChange(old.id, 'Date', _formatDate(oldDateObj), _formatDate(combinedDate));
+      await logChange(old.id, 'Time', _formatTime(TimeOfDay.fromDateTime(oldDateObj)), _formatTime(_selectedTime));
+      await logChange(old.id, 'Amount', old.amount.toString(), amount.toString());
+      await logChange(old.id, 'Type', old.type.toUpperCase(), typeStr.toUpperCase());
+      await logChange(old.id, 'Category', old.category, selectedCategory);
+      await logChange(old.id, 'Payment Method', old.paymentMethod, selectedPayment);
+      await logChange(old.id, 'Remark', old.note, _remarkCtrl.text.trim());
+      
+      Map<String, dynamic> oldCF = {};
+      if (old.customFields.isNotEmpty) { try { oldCF = old.customFields; } catch(_) {} }
+      for (var cf in _customFieldsData) {
+        await logChange(old.id, cf.name, oldCF[cf.id]?.toString() ?? '', _customFieldValues[cf.id] ?? ''); 
+      }
+
+      // 3. Save Main Entry & Apply New Balance
+      await DatabaseHelper.instance.updateEntry(entry);
+      widget.book.balance += (typeStr == 'in' ? amount : -amount);
       await DatabaseHelper.instance.updateBook(widget.book);
 
-      Future<void> logIfChanged(String field, String oldVal, String newVal) async {
-        if (oldVal != newVal) {
-          await DatabaseHelper.instance.insertEditLog(EditLog(id: 'LOG-${Random().nextInt(999999)}', entryId: old.id, field: field, oldValue: oldVal.isEmpty ? 'Empty' : oldVal, newValue: newVal.isEmpty ? 'Empty' : newVal, timestamp: DateTime.now().millisecondsSinceEpoch));
-        }
-      }
-      
-      final oldDateObj = DateTime.fromMillisecondsSinceEpoch(old.timestamp);
-      await logIfChanged('Date', _formatDate(oldDateObj), _formatDate(combinedDate));
-      await logIfChanged('Time', _formatTime(TimeOfDay.fromDateTime(oldDateObj)), _formatTime(_selectedTime));
-      await logIfChanged('Amount', old.amount.toString(), amount.toString());
-      await logIfChanged('Type', old.type.toUpperCase(), typeStr.toUpperCase());
-      await logIfChanged('Category', old.category, selectedCategory);
-      await logIfChanged('Payment Method', old.paymentMethod, selectedPayment);
-      await logIfChanged('Remark', old.note, _remarkCtrl.text.trim());
-
-      Map<String, dynamic> oldCF = {};
-      if (old.customFields.isNotEmpty) {
-        try { oldCF = old.customFields; } catch(_) {}
-      }
-      for (var cf in _customFieldsData) {
-        String oldVal = oldCF[cf.id]?.toString() ?? '';
-        String newVal = _customFieldValues[cf.id] ?? '';
-        await logIfChanged(cf.name, oldVal, newVal); 
-      }
-
-      await DatabaseHelper.instance.updateEntry(entry);
-
-      // --- DOUBLE ENTRY EDIT SYNC ---
+      // --- DOUBLE ENTRY PERFECT SYNC ---
       Entry? existingLinked = await DatabaseHelper.instance.getLinkedEntry(old.id);
+      
       if (existingLinked != null) {
         final lb = await DatabaseHelper.instance.getBookById(existingLinked.bookId);
         if (lb != null) {
-          lb.balance += (existingLinked.type == 'in' ? -existingLinked.amount : existingLinked.amount);
-          await DatabaseHelper.instance.updateBook(lb);
+          // Revert old linked balance exactly as it was
+          lb.balance -= (existingLinked.type == 'in' ? existingLinked.amount : -existingLinked.amount);
+          
+          if (_selectedSubBook == null || _selectedSubBook!.id != existingLinked.bookId) {
+            // Target was removed or changed -> Delete the old link
+            await DatabaseHelper.instance.updateBook(lb);
+            await DatabaseHelper.instance.deleteEntry(existingLinked.id);
+          } else {
+            // Target remains the same -> Update and sync logs perfectly!
+            String oldLinkedType = existingLinked.type;
+            String newLinkedType = typeStr == 'in' ? 'out' : 'in'; // ALWAYS OPPOSITE
+
+            await logChange(existingLinked.id, 'Date', _formatDate(oldDateObj), _formatDate(combinedDate));
+            await logChange(existingLinked.id, 'Time', _formatTime(TimeOfDay.fromDateTime(oldDateObj)), _formatTime(_selectedTime));
+            await logChange(existingLinked.id, 'Amount', existingLinked.amount.toString(), amount.toString());
+            await logChange(existingLinked.id, 'Type', oldLinkedType.toUpperCase(), newLinkedType.toUpperCase()); // Logs reverse type!
+            await logChange(existingLinked.id, 'Category', existingLinked.category, selectedCategory);
+            await logChange(existingLinked.id, 'Payment Method', existingLinked.paymentMethod, selectedPayment);
+            await logChange(existingLinked.id, 'Remark', existingLinked.note, _remarkCtrl.text.trim());
+
+            existingLinked.amount = amount;
+            existingLinked.type = newLinkedType; 
+            existingLinked.category = selectedCategory;
+            existingLinked.paymentMethod = selectedPayment;
+            existingLinked.note = _remarkCtrl.text.trim();
+            existingLinked.timestamp = combinedDate.millisecondsSinceEpoch;
+            existingLinked.customFields = entry.customFields;
+            
+            await DatabaseHelper.instance.updateEntry(existingLinked);
+            
+            // Apply new linked balance
+            lb.balance += (newLinkedType == 'in' ? amount : -amount);
+            await DatabaseHelper.instance.updateBook(lb);
+          }
         }
-        await DatabaseHelper.instance.deleteEntry(existingLinked.id);
       }
 
-      if (_selectedSubBook != null) {
+      // If changed to a NEW sub book (or was None and is now a Book)
+      if (_selectedSubBook != null && (existingLinked == null || existingLinked.bookId != _selectedSubBook!.id)) {
         final subEntry = Entry(
           id: 'ENT-${Random().nextInt(999999)}', bookId: _selectedSubBook!.id, type: typeStr == 'in' ? 'out' : 'in',
           amount: amount, note: _remarkCtrl.text.trim(), category: selectedCategory, paymentMethod: selectedPayment,
@@ -261,10 +353,10 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       widget.book.balance += (typeStr == 'in' ? amount : -amount);
       await DatabaseHelper.instance.updateBook(widget.book);
       
-      // --- DOUBLE ENTRY NEW CREATION ---
+      // CREATE NEW LINKED ENTRY
       if (_selectedSubBook != null) {
         final subEntry = Entry(
-          id: 'ENT-${Random().nextInt(999999)}', bookId: _selectedSubBook!.id, type: typeStr == 'in' ? 'out' : 'in',
+          id: 'ENT-${Random().nextInt(999999)}', bookId: _selectedSubBook!.id, type: typeStr == 'in' ? 'out' : 'in', // Opposite Type
           amount: amount, note: _remarkCtrl.text.trim(), category: selectedCategory, paymentMethod: selectedPayment,
           timestamp: combinedDate.millisecondsSinceEpoch, linkedEntryId: entry.id, customFields: entry.customFields,
         );
@@ -369,39 +461,39 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.center,
-              children: [Text(isEdit ? 'Edit Entry' : 'Add Entry'), Text(widget.book.name, style: const TextStyle(fontSize: 12, color: textMuted, fontWeight: FontWeight.normal))],
-            ),
-            if (_selectedSubBook != null) ...[
-              const Padding(padding: EdgeInsets.symmetric(horizontal: 8.0), child: Icon(Icons.arrow_forward_rounded, size: 16, color: textLight)),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                children: [
-                  const Text('Transfer', style: TextStyle(fontSize: 10, color: textLight)),
-                  Text(_selectedSubBook!.name, style: const TextStyle(fontSize: 12, color: accent, fontWeight: FontWeight.bold)),
+        automaticallyImplyLeading: true,
+        // DYNAMIC TOP DOWN MENU TRIGGER IN APP BAR
+        title: GestureDetector(
+          onTap: widget.book.parentId == null ? _showTopSubBookPicker : null,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(color: widget.book.parentId == null ? appBg : Colors.transparent, borderRadius: BorderRadius.circular(12)),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.center,
+                  children: [Text(isEdit ? 'Edit Entry' : 'Add Entry', style: const TextStyle(fontSize: 16)), Text(widget.book.name, style: const TextStyle(fontSize: 11, color: textMuted, fontWeight: FontWeight.normal))],
+                ),
+                if (widget.book.parentId == null) ...[
+                  const SizedBox(width: 8),
+                  const Icon(Icons.keyboard_arrow_down, color: textMuted, size: 20),
                 ],
-              ),
-            ]
-          ],
-        ),
-        actions: [
-          if (widget.book.parentId == null)
-            PopupMenuButton<Book?>(
-              icon: const Icon(Icons.account_tree_outlined, color: accent),
-              onSelected: _handleSubBookSelection,
-              itemBuilder: (ctx) => [
-                const PopupMenuItem(value: null, child: Text('None (No Transfer)', style: TextStyle(color: textMuted))),
-                const PopupMenuDivider(),
-                ..._availableSubBooks.map((b) => PopupMenuItem(value: b, child: Text(b.name, style: const TextStyle(fontWeight: FontWeight.bold)))),
-                const PopupMenuDivider(),
-                PopupMenuItem(value: Book(id: 'ADD_NEW', name: '', description: '', balance: 0, createdAt: 0, timestamp: 0, currency: '', icon: ''), child: const Text('+ Add New Sub Book', style: TextStyle(color: accent, fontWeight: FontWeight.bold))),
+                if (_selectedSubBook != null) ...[
+                  const Padding(padding: EdgeInsets.symmetric(horizontal: 8.0), child: Icon(Icons.arrow_forward_rounded, size: 14, color: textLight)),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    children: [
+                      const Text('Transfer', style: TextStyle(fontSize: 9, color: textLight)),
+                      Text(_selectedSubBook!.name, style: const TextStyle(fontSize: 11, color: accent, fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                ]
               ],
-            )
-        ],
+            ),
+          ),
+        ),
+        centerTitle: true,
       ),
       body: ListView(
         padding: const EdgeInsets.all(20),
