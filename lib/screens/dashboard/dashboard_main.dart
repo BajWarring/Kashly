@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:math';
 
 import '../../core/models/book.dart';
+import '../../core/models/currency.dart'; // NEW IMPORT
 import '../../core/database_helper.dart';
 import '../../core/theme.dart'; 
 import '../cashbooks/cashbook_screen.dart'; 
@@ -319,6 +320,7 @@ class _AddBookSheetState extends State<AddBookSheet> {
   final _nameCtrl = TextEditingController();
   final _descCtrl = TextEditingController();
   Currency _selectedCurrency = worldCurrencies[0];
+  String _searchQuery = '';
 
   void _submit() {
     if (_nameCtrl.text.trim().isEmpty) return;
@@ -339,20 +341,43 @@ class _AddBookSheetState extends State<AddBookSheet> {
   void _pickCurrency() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
-      builder: (ctx) => ListView.builder(
-        shrinkWrap: true,
-        itemCount: worldCurrencies.length,
-        itemBuilder: (c, i) => ListTile(
-          leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(8)), child: Text(worldCurrencies[i].symbol, style: const TextStyle(fontWeight: FontWeight.bold))),
-          title: Text(worldCurrencies[i].code, style: const TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: Text(worldCurrencies[i].name),
-          onTap: () {
-            setState(() => _selectedCurrency = worldCurrencies[i]);
-            Navigator.pop(ctx);
-          },
-        ),
+      builder: (ctx) => StatefulBuilder(
+        builder: (context, setModalState) {
+          final filteredList = worldCurrencies.where((c) => c.name.toLowerCase().contains(_searchQuery.toLowerCase()) || c.code.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+          return DraggableScrollableSheet(
+            initialChildSize: 0.7, minChildSize: 0.5, maxChildSize: 0.9, expand: false,
+            builder: (context, scrollController) => Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: TextField(
+                    autofocus: true,
+                    decoration: InputDecoration(hintText: 'Search currency...', prefixIcon: const Icon(Icons.search), filled: true, fillColor: appBg, border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide.none)),
+                    onChanged: (val) => setModalState(() => _searchQuery = val),
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    controller: scrollController,
+                    itemCount: filteredList.length,
+                    itemBuilder: (c, i) => ListTile(
+                      leading: Container(width: 40, height: 40, alignment: Alignment.center, decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(12)), child: Text(filteredList[i].symbol, style: const TextStyle(fontWeight: FontWeight.bold, color: textDark, fontSize: 16))),
+                      title: Text(filteredList[i].code, style: const TextStyle(fontWeight: FontWeight.bold)),
+                      subtitle: Text(filteredList[i].name),
+                      onTap: () {
+                        setState(() => _selectedCurrency = filteredList[i]);
+                        Navigator.pop(ctx);
+                      },
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
       )
     );
   }
@@ -396,7 +421,7 @@ class _AddBookSheetState extends State<AddBookSheet> {
                 decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(12)),
                 child: Row(
                   children: [
-                    Text(_selectedCurrency.symbol, style: const TextStyle(fontWeight: FontWeight.bold, color: textDark)),
+                    Text(_selectedCurrency.symbol, style: const TextStyle(fontWeight: FontWeight.bold, color: textDark, fontSize: 16)),
                     const SizedBox(width: 12),
                     Text('${_selectedCurrency.code} - ${_selectedCurrency.name}', style: const TextStyle(fontWeight: FontWeight.w600, color: textDark)),
                     const Spacer(),
