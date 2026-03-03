@@ -50,8 +50,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
   }
 
   String _formatDateTime(int ms) {
-    final d = DateTime.fromMillisecondsSinceEpoch(ms);
-    return DateFormat('MMM d, yyyy • h:mm a').format(d);
+    return DateFormat('MMM d, yyyy • h:mm a').format(DateTime.fromMillisecondsSinceEpoch(ms));
   }
 
   void _openEditEditor() async {
@@ -124,7 +123,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
       children: [
         Row(children: [Icon(icon, size: 12, color: textLight), const SizedBox(width: 4), Text(title.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: textMuted))]),
         const SizedBox(height: 4),
-        Text(val, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textDark), maxLines: 1, overflow: TextOverflow.ellipsis),
+        Text(val.isEmpty ? '-' : val, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textDark), maxLines: 1, overflow: TextOverflow.ellipsis),
       ],
     );
   }
@@ -137,6 +136,12 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
 
     final dateStr = DateFormat('MMM d, yyyy').format(DateTime.fromMillisecondsSinceEpoch(_currentEntry.timestamp));
     final timeStr = DateFormat('h:mm a').format(DateTime.fromMillisecondsSinceEpoch(_currentEntry.timestamp));
+
+    // Load dynamic custom fields map safely
+    Map<String, dynamic> cFields = {};
+    if (_currentEntry.customFields.isNotEmpty) {
+      try { cFields = _currentEntry.customFields; } catch(e) {}
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -174,6 +179,8 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
                   children: [
                     _buildGridItem('Category', _currentEntry.category, Icons.category),
                     _buildGridItem('Payment Mode', _currentEntry.paymentMethod, Icons.account_balance),
+                    // FIXED: Dynamic custom fields injected here automatically
+                    ...cFields.entries.map((e) => _buildGridItem(e.key, e.value.toString(), Icons.label_important)),
                   ],
                 )
               ],
@@ -181,6 +188,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
           ),
           const SizedBox(height: 16),
 
+          // FIXED: Entry Created Card (Independent of edits)
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
@@ -188,10 +196,26 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
               children: [
                 const Icon(Icons.info_outline, color: textLight, size: 20),
                 const SizedBox(width: 12),
-                Expanded(child: Text('Entry modified on ${_formatDateTime(_currentEntry.timestamp)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: textMuted))),
+                Expanded(child: Text('Entry created on ${_formatDateTime(groupedLogs.isEmpty ? _currentEntry.timestamp : groupedLogs.keys.last)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: textMuted))),
               ],
             ),
           ),
+
+          // FIXED: Separate Entry Modified Card
+          if (groupedLogs.isNotEmpty)
+            Container(
+              margin: const EdgeInsets.only(top: 8),
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
+              child: Row(
+                children: [
+                  const Icon(Icons.edit, color: textLight, size: 20),
+                  const SizedBox(width: 12),
+                  Expanded(child: Text('Entry last modified on ${_formatDateTime(_currentEntry.timestamp)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: textMuted))),
+                ],
+              ),
+            ),
+            
           const SizedBox(height: 24),
 
           const Padding(padding: EdgeInsets.only(left: 8, bottom: 12), child: Text('EDIT HISTORY', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textLight, letterSpacing: 1.2))),
