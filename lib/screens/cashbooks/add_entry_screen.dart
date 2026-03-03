@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:math';
-import 'dart:convert';
 
 import '../../core/models/book.dart';
 import '../../core/models/entry.dart';
@@ -61,16 +60,11 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       _selectedDate = d;
       _selectedTime = TimeOfDay(hour: d.hour, minute: d.minute);
 
+      // FIXED: customFields is already a Map, no jsonDecode needed!
       if (widget.existingEntry!.customFields.isNotEmpty) {
-        try {
-          // If the model stored it as a string, decode it. If it's already a map, handle it.
-          Map<String, dynamic> decoded = widget.existingEntry!.customFields is String 
-              ? jsonDecode(widget.existingEntry!.customFields) 
-              : widget.existingEntry!.customFields;
-          decoded.forEach((key, value) => _customFieldValues[key] = value.toString());
-        } catch (e) {
-          // Ignore parsing error
-        }
+        widget.existingEntry!.customFields.forEach((key, value) {
+          _customFieldValues[key] = value.toString();
+        });
       }
     }
     _loadInitialData();
@@ -147,7 +141,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       paymentMethod: selectedPayment,
       timestamp: combinedDate.millisecondsSinceEpoch,
       linkedEntryId: isEdit ? widget.existingEntry!.linkedEntryId : null,
-      // FIXED: Passed as Map instead of JSON string
       customFields: Map<String, dynamic>.from(_customFieldValues),
     );
 
