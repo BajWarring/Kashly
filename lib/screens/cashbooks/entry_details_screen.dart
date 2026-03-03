@@ -118,7 +118,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     }
   }
 
-  // --- QUICK LINK UPDATE LOGIC ---
   Future<bool> _showLinkTip() async {
     if (DatabaseHelper.hideLinkTip) return true;
     bool localHide = false;
@@ -311,7 +310,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
       appBar: AppBar(
         title: const Text('Entry Details'),
         actions: [
-          // NEW DYNAMIC LINK BUTTON
           TextButton.icon(
             onPressed: _handleLinkButton,
             icon: Icon(Icons.link, color: _linkedBook != null ? accent : textMuted),
