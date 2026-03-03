@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'dart:math';
 
 import '../../core/models/book.dart';
 import '../../core/models/entry.dart';
@@ -23,6 +24,9 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
   Map<int, List<EditLog>> groupedLogs = {};
   final Map<String, String> _customFieldNames = {};
   bool _isLoadingLogs = true;
+  
+  Book? _linkedBook;
+  List<Book> _availableBooksToLink = [];
 
   @override
   void initState() {
@@ -37,6 +41,16 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     final logs = await DatabaseHelper.instance.getLogsForEntry(_currentEntry.id);
     final cfs = await DatabaseHelper.instance.getCustomFieldsForBook(widget.book.id);
     
+    final allBooks = await DatabaseHelper.instance.getAllBooks();
+    _availableBooksToLink = allBooks.where((b) => b.id != widget.book.id).toList();
+
+    Entry? linked = await DatabaseHelper.instance.getLinkedEntry(_currentEntry.id);
+    if (linked != null) {
+      _linkedBook = await DatabaseHelper.instance.getBookById(linked.bookId);
+    } else {
+      _linkedBook = null;
+    }
+
     Map<int, List<EditLog>> grouped = {};
     for (var log in logs) {
       if (!grouped.containsKey(log.timestamp)) {
@@ -104,6 +118,141 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     }
   }
 
+  // --- QUICK LINK UPDATE LOGIC ---
+  Future<bool> _showLinkTip() async {
+    if (DatabaseHelper.hideLinkTip) return true;
+    bool localHide = false;
+    final res = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (c, setS) => AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(children: [Icon(Icons.link, color: accent), SizedBox(width: 8), Text('Link Cashbooks')]),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const Text('Linking an entry will automatically create a corresponding entry in the selected cashbook with the opposite type (e.g., Cash In becomes Cash Out). This helps track transfers between books.'),
+              const SizedBox(height: 16),
+              CheckboxListTile(
+                contentPadding: EdgeInsets.zero,
+                controlAffinity: ListTileControlAffinity.leading,
+                activeColor: accent,
+                value: localHide,
+                onChanged: (v) => setS(() => localHide = v ?? false),
+                title: const Text('Do not show again', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+              )
+            ]
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: accent),
+              onPressed: () {
+                DatabaseHelper.hideLinkTip = localHide;
+                Navigator.pop(ctx, true);
+              },
+              child: const Text('OK', style: TextStyle(color: Colors.white))
+            )
+          ]
+        )
+      )
+    );
+    return res ?? false;
+  }
+
+  Future<void> _handleLinkButton() async {
+    if (!DatabaseHelper.hideLinkTip) {
+      bool proceed = await _showLinkTip();
+      if (!proceed) return;
+    }
+
+    if (!mounted) return;
+
+    if (_availableBooksToLink.isEmpty) {
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('No other cashbooks'),
+          content: const Text('Add more cashbooks to link entries between them.'),
+          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))]
+        )
+      );
+      return;
+    }
+
+    final selected = await showModalBottomSheet<Book>(
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      builder: (ctx) => Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text('Select Cashbook to Link', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.link_off, color: textMuted, size: 20)),
+              title: const Text('None (Remove Link)', style: TextStyle(color: textMuted, fontWeight: FontWeight.w600)),
+              onTap: () => Navigator.pop(ctx, Book(id: 'REMOVE', name: '', description: '', balance: 0, createdAt: 0, timestamp: 0, currency: '', icon: '')),
+            ),
+            const Divider(height: 1),
+            ..._availableBooksToLink.map((b) => ListTile(
+              leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: accentLight, borderRadius: BorderRadius.circular(8)), child: Icon(availableIcons[b.icon] ?? Icons.book, color: accent, size: 20)),
+              title: Text(b.name, style: const TextStyle(fontWeight: FontWeight.bold)),
+              trailing: _linkedBook?.id == b.id ? const Icon(Icons.check_circle, color: accent) : null,
+              onTap: () => Navigator.pop(ctx, b),
+            ))
+          ]
+        )
+      )
+    );
+
+    if (selected != null) {
+      _updateLink(selected.id == 'REMOVE' ? null : selected);
+    }
+  }
+
+  void _updateLink(Book? targetBook) async {
+    Entry? existingLinked = await DatabaseHelper.instance.getLinkedEntry(_currentEntry.id);
+
+    if (existingLinked != null) {
+      final lb = await DatabaseHelper.instance.getBookById(existingLinked.bookId);
+      if (lb != null) {
+        lb.balance -= (existingLinked.type == 'in' ? existingLinked.amount : -existingLinked.amount);
+        await DatabaseHelper.instance.updateBook(lb);
+      }
+      await DatabaseHelper.instance.deleteEntry(existingLinked.id);
+      _currentEntry.linkedEntryId = null;
+    }
+
+    if (targetBook != null) {
+      final subEntry = Entry(
+        id: 'ENT-${Random().nextInt(999999)}',
+        bookId: targetBook.id,
+        type: _currentEntry.type == 'in' ? 'out' : 'in',
+        amount: _currentEntry.amount,
+        note: _currentEntry.note,
+        category: _currentEntry.category,
+        paymentMethod: _currentEntry.paymentMethod,
+        timestamp: _currentEntry.timestamp,
+        linkedEntryId: _currentEntry.id,
+        customFields: _currentEntry.customFields,
+      );
+      await DatabaseHelper.instance.insertEntry(subEntry);
+      targetBook.balance += (subEntry.type == 'in' ? subEntry.amount : -subEntry.amount);
+      await DatabaseHelper.instance.updateBook(targetBook);
+      _currentEntry.linkedEntryId = subEntry.id;
+    }
+    
+    await DatabaseHelper.instance.updateEntry(_currentEntry);
+    _loadData();
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Link updated successfully!')));
+    }
+  }
+
   void _showShareSheet(BuildContext context) {
     int selectedOption = 0; 
     showModalBottomSheet(
@@ -161,11 +310,15 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Entry Details'),
-        // FIXED: Hide Edit/Delete appbar actions if it's a Sub-Book
-        actions: widget.book.parentId == null ? [
-          IconButton(icon: const Icon(Icons.edit_outlined), onPressed: _openEditEditor),
-          IconButton(icon: const Icon(Icons.delete_outline, color: danger), onPressed: _deleteEntry),
-        ] : [],
+        actions: [
+          // NEW DYNAMIC LINK BUTTON
+          TextButton.icon(
+            onPressed: _handleLinkButton,
+            icon: Icon(Icons.link, color: _linkedBook != null ? accent : textMuted),
+            label: Text(_linkedBook != null ? _linkedBook!.name : 'Link', style: TextStyle(color: _linkedBook != null ? accent : textMuted, fontWeight: FontWeight.bold)),
+          ),
+          const SizedBox(width: 8),
+        ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -298,12 +451,10 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
         child: Row(
           children: [
             Expanded(child: ElevatedButton.icon(onPressed: () => _showShareSheet(context), icon: const Icon(Icons.share, color: textDark), label: const Text('Share', style: TextStyle(color: textDark, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: borderCol))))),
-            
-            // FIXED: Hides the big Edit Entry FAB if it's a Sub-Book
-            if (widget.book.parentId == null) ...[
-              const SizedBox(width: 12),
-              Expanded(flex: 2, child: ElevatedButton.icon(onPressed: _openEditEditor, icon: const Icon(Icons.edit, color: Colors.white), label: const Text('Edit Entry', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: accent, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))))),
-            ]
+            const SizedBox(width: 12),
+            Expanded(flex: 2, child: ElevatedButton.icon(onPressed: _openEditEditor, icon: const Icon(Icons.edit, color: Colors.white), label: const Text('Edit Entry', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: accent, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))))),
+            const SizedBox(width: 12),
+            Container(decoration: BoxDecoration(color: dangerLight, borderRadius: BorderRadius.circular(16)), child: IconButton(icon: const Icon(Icons.delete_outline, color: danger), onPressed: _deleteEntry)),
           ],
         ),
       ),
