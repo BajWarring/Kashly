@@ -21,7 +21,6 @@ class _CashbookScreenState extends State<CashbookScreen> {
   bool _isSearchActive = false;
   String _searchQuery = '';
   
-  // Filter States
   String _filterType = 'All Entries';
   List<String> _filterCategories = [];
   List<String> _filterPayments = [];
@@ -80,12 +79,12 @@ class _CashbookScreenState extends State<CashbookScreen> {
       if (res != null && res.isNotEmpty) setState(() => _filterType = res.first);
     } else if (type == 'category') {
       final opts = await DatabaseHelper.instance.getAllOptions('Category');
-      if (!mounted) return;
+      if (!context.mounted) return;
       final res = await FilterDialogs.showSelectionDialog(context, 'Categories', opts.map((e)=>e.value).toList(), true);
       if (res != null) setState(() => _filterCategories = res);
     } else if (type == 'payment') {
       final opts = await DatabaseHelper.instance.getAllOptions('Payment Method');
-      if (!mounted) return;
+      if (!context.mounted) return;
       final res = await FilterDialogs.showSelectionDialog(context, 'Payment Method', opts.map((e)=>e.value).toList(), true);
       if (res != null) setState(() => _filterPayments = res);
     }
@@ -127,7 +126,6 @@ class _CashbookScreenState extends State<CashbookScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // ACTUAL FILTERING LOGIC
     final displayEntries = entries.where((e) {
       bool searchMatch = e.note.toLowerCase().contains(_searchQuery.toLowerCase()) || e.category.toLowerCase().contains(_searchQuery.toLowerCase());
       bool typeMatch = _filterType == 'All Entries' || (_filterType == 'Cash In' && e.type == 'in') || (_filterType == 'Cash Out' && e.type == 'out');
@@ -184,7 +182,6 @@ class _CashbookScreenState extends State<CashbookScreen> {
               itemBuilder: (context, index) {
                 final entry = displayEntries[index];
                 
-                // Formatted Dates: Feb 23, 2026 style
                 final dateStr = DateFormat('MMM d, yyyy').format(DateTime.fromMillisecondsSinceEpoch(entry.timestamp));
                 final timeStr = DateFormat('h:mm a').format(DateTime.fromMillisecondsSinceEpoch(entry.timestamp));
                 
@@ -222,7 +219,6 @@ class _CashbookScreenState extends State<CashbookScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    // COMPACT: Tags front of time
                                     Row(
                                       children: [
                                         Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(6)), child: Text(entry.category, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: textMuted))),
