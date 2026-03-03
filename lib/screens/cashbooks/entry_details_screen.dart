@@ -137,10 +137,10 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     final dateStr = DateFormat('MMM d, yyyy').format(DateTime.fromMillisecondsSinceEpoch(_currentEntry.timestamp));
     final timeStr = DateFormat('h:mm a').format(DateTime.fromMillisecondsSinceEpoch(_currentEntry.timestamp));
 
-    // Load dynamic custom fields map safely
     Map<String, dynamic> cFields = {};
     if (_currentEntry.customFields.isNotEmpty) {
-      try { cFields = _currentEntry.customFields; } catch(e) {}
+      // FIXED: Used _ to explicitly ignore the caught error for the linter
+      try { cFields = _currentEntry.customFields; } catch(_) { /* ignore map error */ }
     }
 
     return Scaffold(
@@ -179,7 +179,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
                   children: [
                     _buildGridItem('Category', _currentEntry.category, Icons.category),
                     _buildGridItem('Payment Mode', _currentEntry.paymentMethod, Icons.account_balance),
-                    // FIXED: Dynamic custom fields injected here automatically
                     ...cFields.entries.map((e) => _buildGridItem(e.key, e.value.toString(), Icons.label_important)),
                   ],
                 )
@@ -188,7 +187,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
           ),
           const SizedBox(height: 16),
 
-          // FIXED: Entry Created Card (Independent of edits)
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
@@ -201,7 +199,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
             ),
           ),
 
-          // FIXED: Separate Entry Modified Card
           if (groupedLogs.isNotEmpty)
             Container(
               margin: const EdgeInsets.only(top: 8),
