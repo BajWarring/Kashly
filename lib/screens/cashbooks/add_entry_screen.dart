@@ -43,6 +43,10 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
   List<CustomField> _customFieldsData = [];
   final Map<String, String> _customFieldValues = {};
 
+  // SUB-BOOKS DOUBLE ENTRY SYSTEM
+  List<Book> _availableSubBooks = [];
+  Book? _selectedSubBook;
+
   bool get isEdit => widget.existingEntry != null;
   Color get activeColor => isCashIn ? success : danger;
   Color get activeBg => isCashIn ? successLight : dangerLight;
@@ -77,6 +81,22 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     final remarks = await DatabaseHelper.instance.getRecentRemarks(widget.book.id);
     final cFields = await DatabaseHelper.instance.getCustomFieldsForBook(widget.book.id);
     
+    // Only fetch sub books if we are inside a MAIN book
+    if (widget.book.parentId == null) {
+      _availableSubBooks = await DatabaseHelper.instance.getSubBooks(widget.book.id);
+    }
+    
+    // Detect if this edit entry was previously linked to a sub-book
+    if (isEdit) {
+      Entry? linked = await DatabaseHelper.instance.getLinkedEntry(widget.existingEntry!.id);
+      if (linked != null) {
+        Book? linkedBk = await DatabaseHelper.instance.getBookById(linked.bookId);
+        if (linkedBk != null && linkedBk.id != widget.book.id) {
+          _selectedSubBook = linkedBk;
+        }
+      }
+    }
+    
     var cats = await DatabaseHelper.instance.getTopOptions('Category');
     var methods = await DatabaseHelper.instance.getTopOptions('Payment Method');
     
@@ -99,29 +119,36 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     });
   }
 
-  Future<void> _openManageOptions(String fieldName) async {
-    final selectedFromMore = await Navigator.push(context, MaterialPageRoute(builder: (_) => ManageOptionsScreen(fieldName: fieldName)));
-    await _loadInitialData();
-    if (!mounted) return; 
-    if (selectedFromMore != null && selectedFromMore is String) {
-      setState(() {
-        if (fieldName == 'Category') selectedCategory = selectedFromMore;
-        if (fieldName == 'Payment Method') selectedPayment = selectedFromMore;
-      });
+  void _handleSubBookSelection(Book? book) async {
+    if (book == null) {
+      setState(() => _selectedSubBook = null);
+    } else if (book.id == 'ADD_NEW') {
+      final ctrl = TextEditingController();
+      final newName = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('New Sub Book', style: TextStyle(fontWeight: FontWeight.bold)),
+          content: TextField(controller: ctrl, autofocus: true, decoration: InputDecoration(hintText: 'e.g. Savings', filled: true, fillColor: appBg, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: accent), onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Add', style: TextStyle(color: Colors.white)))
+          ]
+        )
+      );
+      if (newName != null && newName.trim().isNotEmpty) {
+        final newBook = Book(
+          id: 'SUB-${10000 + Random().nextInt(90000)}',
+          name: newName.trim(), description: '', balance: 0,
+          createdAt: DateTime.now().millisecondsSinceEpoch, timestamp: DateTime.now().millisecondsSinceEpoch,
+          currency: widget.book.currency, icon: 'wallet', parentId: widget.book.id
+        );
+        await DatabaseHelper.instance.insertBook(newBook);
+        await _loadInitialData(); 
+        setState(() => _selectedSubBook = newBook);
+      }
+    } else {
+      setState(() => _selectedSubBook = book);
     }
-  }
-
-  String _formatDate(DateTime d) => DateFormat('MMM d, yyyy').format(d);
-  String _formatTime(TimeOfDay t) => DateFormat('h:mm a').format(DateTime(2020, 1, 1, t.hour, t.minute));
-
-  Future<void> _pickDateTime() async {
-    final date = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2000), lastDate: DateTime(2100), builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: ColorScheme.light(primary: activeColor, onPrimary: Colors.white, onSurface: textDark)), child: child!));
-    if (date != null) { setState(() => _selectedDate = date); _pickTime(); }
-  }
-
-  Future<void> _pickTime() async {
-    final time = await showTimePicker(context: context, initialTime: _selectedTime, builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: ColorScheme.light(primary: activeColor, onPrimary: Colors.white, onSurface: textDark)), child: child!));
-    if (time != null) setState(() => _selectedTime = time);
   }
 
   Future<void> _saveEntry(bool addNew) async {
@@ -169,7 +196,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       await logIfChanged('Payment Method', old.paymentMethod, selectedPayment);
       await logIfChanged('Remark', old.note, _remarkCtrl.text.trim());
 
-      // FIXED: Iterating over Custom Fields to create logs using their actual Name
       Map<String, dynamic> oldCF = {};
       if (old.customFields.isNotEmpty) {
         try { oldCF = old.customFields; } catch(_) {}
@@ -181,10 +207,45 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       }
 
       await DatabaseHelper.instance.updateEntry(entry);
+
+      // --- DOUBLE ENTRY EDIT SYNC ---
+      Entry? existingLinked = await DatabaseHelper.instance.getLinkedEntry(old.id);
+      if (existingLinked != null) {
+        final lb = await DatabaseHelper.instance.getBookById(existingLinked.bookId);
+        if (lb != null) {
+          lb.balance += (existingLinked.type == 'in' ? -existingLinked.amount : existingLinked.amount);
+          await DatabaseHelper.instance.updateBook(lb);
+        }
+        await DatabaseHelper.instance.deleteEntry(existingLinked.id);
+      }
+
+      if (_selectedSubBook != null) {
+        final subEntry = Entry(
+          id: 'ENT-${Random().nextInt(999999)}', bookId: _selectedSubBook!.id, type: typeStr == 'in' ? 'out' : 'in',
+          amount: amount, note: _remarkCtrl.text.trim(), category: selectedCategory, paymentMethod: selectedPayment,
+          timestamp: combinedDate.millisecondsSinceEpoch, linkedEntryId: entry.id, customFields: entry.customFields,
+        );
+        await DatabaseHelper.instance.insertEntry(subEntry);
+        _selectedSubBook!.balance += (subEntry.type == 'in' ? amount : -amount);
+        await DatabaseHelper.instance.updateBook(_selectedSubBook!);
+      }
+
     } else {
       await DatabaseHelper.instance.insertEntry(entry);
       widget.book.balance += (typeStr == 'in' ? amount : -amount);
       await DatabaseHelper.instance.updateBook(widget.book);
+      
+      // --- DOUBLE ENTRY NEW CREATION ---
+      if (_selectedSubBook != null) {
+        final subEntry = Entry(
+          id: 'ENT-${Random().nextInt(999999)}', bookId: _selectedSubBook!.id, type: typeStr == 'in' ? 'out' : 'in',
+          amount: amount, note: _remarkCtrl.text.trim(), category: selectedCategory, paymentMethod: selectedPayment,
+          timestamp: combinedDate.millisecondsSinceEpoch, linkedEntryId: entry.id, customFields: entry.customFields,
+        );
+        await DatabaseHelper.instance.insertEntry(subEntry);
+        _selectedSubBook!.balance += (subEntry.type == 'in' ? amount : -amount);
+        await DatabaseHelper.instance.updateBook(_selectedSubBook!);
+      }
     }
     
     await DatabaseHelper.instance.recordOptionUsage('Category', selectedCategory);
@@ -223,7 +284,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
 
   Widget _buildCustomFieldInput(CustomField field) {
     String val = _customFieldValues[field.id] ?? '';
-    
     Widget inputWidget;
     if (field.type == 'Dropdown' && field.options.isNotEmpty) {
       List<String> opts = field.options.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
@@ -232,9 +292,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol, width: 1.5)),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
-            isExpanded: true,
-            value: opts.contains(val) ? val : null,
-            hint: const Text('Select option', style: TextStyle(color: textMuted)),
+            isExpanded: true, value: opts.contains(val) ? val : null, hint: const Text('Select option', style: TextStyle(color: textMuted)),
             items: opts.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList(),
             onChanged: (newValue) => setState(() => _customFieldValues[field.id] = newValue!),
           ),
@@ -253,9 +311,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
         decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol, width: 1.5)),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
-            isExpanded: true,
-            icon: const Icon(Icons.contact_page, color: textMuted),
-            value: contacts.contains(val) ? val : null,
+            isExpanded: true, icon: const Icon(Icons.contact_page, color: textMuted), value: contacts.contains(val) ? val : null,
             hint: const Text('Select from Contacts', style: TextStyle(color: textMuted)),
             items: contacts.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList(),
             onChanged: (newValue) => setState(() => _customFieldValues[field.id] = newValue!),
@@ -283,10 +339,54 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     );
   }
 
+  Future<void> _pickDateTime() async {
+    final date = await showDatePicker(context: context, initialDate: _selectedDate, firstDate: DateTime(2000), lastDate: DateTime(2100), builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: ColorScheme.light(primary: activeColor, onPrimary: Colors.white, onSurface: textDark)), child: child!));
+    if (date != null) { setState(() => _selectedDate = date); _pickTime(); }
+  }
+
+  Future<void> _pickTime() async {
+    final time = await showTimePicker(context: context, initialTime: _selectedTime, builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: ColorScheme.light(primary: activeColor, onPrimary: Colors.white, onSurface: textDark)), child: child!));
+    if (time != null) setState(() => _selectedTime = time);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Column(crossAxisAlignment: CrossAxisAlignment.center, children: [Text(isEdit ? 'Edit Entry' : 'Add Entry'), Text(widget.book.name, style: const TextStyle(fontSize: 12, color: textMuted, fontWeight: FontWeight.normal))])),
+      appBar: AppBar(
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [Text(isEdit ? 'Edit Entry' : 'Add Entry'), Text(widget.book.name, style: const TextStyle(fontSize: 12, color: textMuted, fontWeight: FontWeight.normal))],
+            ),
+            if (_selectedSubBook != null) ...[
+              const Padding(padding: EdgeInsets.symmetric(horizontal: 8.0), child: Icon(Icons.arrow_forward_rounded, size: 16, color: textLight)),
+              Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  const Text('Transfer', style: TextStyle(fontSize: 10, color: textLight)),
+                  Text(_selectedSubBook!.name, style: const TextStyle(fontSize: 12, color: accent, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ]
+          ],
+        ),
+        actions: [
+          if (widget.book.parentId == null)
+            PopupMenuButton<Book?>(
+              icon: const Icon(Icons.account_tree_outlined, color: accent),
+              onSelected: _handleSubBookSelection,
+              itemBuilder: (ctx) => [
+                const PopupMenuItem(value: null, child: Text('None (No Transfer)', style: TextStyle(color: textMuted))),
+                const PopupMenuDivider(),
+                ..._availableSubBooks.map((b) => PopupMenuItem(value: b, child: Text(b.name, style: const TextStyle(fontWeight: FontWeight.bold)))),
+                const PopupMenuDivider(),
+                PopupMenuItem(value: Book(id: 'ADD_NEW', name: '', description: '', balance: 0, createdAt: 0, timestamp: 0, currency: '', icon: ''), child: const Text('+ Add New Sub Book', style: TextStyle(color: accent, fontWeight: FontWeight.bold))),
+              ],
+            )
+        ],
+      ),
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
