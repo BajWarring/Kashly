@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/theme.dart';
+import 'backup_restore/backup_manager_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -28,7 +29,7 @@ class SettingsScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildTile(IconData icon, String title, String? subtitle, Color iconCol, Color iconBg) {
+  Widget _buildTile(IconData icon, String title, String? subtitle, Color iconCol, Color iconBg, {VoidCallback? onTap}) {
     return ListTile(
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       leading: Container(
@@ -39,9 +40,7 @@ class SettingsScreen extends StatelessWidget {
       title: Text(title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15, color: textDark)),
       subtitle: subtitle != null ? Text(subtitle, style: const TextStyle(fontSize: 12, color: textMuted, fontWeight: FontWeight.w500)) : null,
       trailing: const Icon(Icons.chevron_right, color: textLight),
-      onTap: () {
-        // Future sub-pages will go here
-      },
+      onTap: onTap ?? () {},
     );
   }
 
@@ -55,7 +54,9 @@ class SettingsScreen extends StatelessWidget {
         ]),
         
         _buildGroup('DATA & ANALYTICS', [
-          _buildTile(Icons.save_alt, 'Backup & Restore', null, textMuted, appBg),
+          _buildTile(Icons.save_alt, 'Backup & Restore', null, textMuted, appBg, onTap: () {
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const BackupManagerScreen()));
+          }),
           const Divider(height: 1, color: borderCol),
           _buildTile(Icons.bar_chart, 'Reports', null, textMuted, appBg),
         ]),
