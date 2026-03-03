@@ -34,7 +34,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     setState(() => _isLoadingLogs = true);
     final logs = await DatabaseHelper.instance.getLogsForEntry(_currentEntry.id);
     
-    // Group logs by exact timestamp to match the UI design
     Map<int, List<EditLog>> grouped = {};
     for (var log in logs) {
       if (!grouped.containsKey(log.timestamp)) {
@@ -52,20 +51,11 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
 
   String _formatDateTime(int ms) {
     final d = DateTime.fromMillisecondsSinceEpoch(ms);
-    return "${d.day}/${d.month}/${d.year} ${d.hour.toString().padLeft(2,'0')}:${d.minute.toString().padLeft(2,'0')}";
+    return DateFormat('MMM d, yyyy • h:mm a').format(d);
   }
 
   void _openEditEditor() async {
-    final bool? didUpdate = await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => AddEntryScreen(
-          book: widget.book,
-          existingEntry: _currentEntry,
-        ),
-      ),
-    );
-
+    final bool? didUpdate = await Navigator.push(context, MaterialPageRoute(builder: (context) => AddEntryScreen(book: widget.book, existingEntry: _currentEntry)));
     if (didUpdate == true) {
       final updatedEntry = await DatabaseHelper.instance.getEntryById(_currentEntry.id);
       if (!mounted) return; 
@@ -85,11 +75,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
         content: const Text('Are you sure you want to permanently delete this transaction?'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(backgroundColor: danger),
-            onPressed: () => Navigator.pop(ctx, true), 
-            child: const Text('Delete', style: TextStyle(color: Colors.white)),
-          )
+          ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: danger), onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: Colors.white)))
         ],
       )
     );
@@ -103,71 +89,34 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     }
   }
 
-    void _showShareSheet(BuildContext context) {
-    int selectedOption = 0; // 0 = without logs, 1 = with logs
+  void _showShareSheet(BuildContext context) {
+    int selectedOption = 0; 
     showModalBottomSheet(
-      context: context,
-      backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      context: context, backgroundColor: Colors.white, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setSheetState) => Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const Text('Share Entry', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textDark)),
               const SizedBox(height: 16),
-              
-              // Custom Radio Option 1
               InkWell(
-                onTap: () => setSheetState(() => selectedOption = 0),
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    children: [
-                      Icon(selectedOption == 0 ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: selectedOption == 0 ? accent : textMuted),
-                      const SizedBox(width: 12),
-                      const Text('Share without Edit Logs', style: TextStyle(fontWeight: FontWeight.w600, color: textDark, fontSize: 16)),
-                    ],
-                  ),
-                ),
+                onTap: () => setSheetState(() => selectedOption = 0), borderRadius: BorderRadius.circular(12),
+                child: Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Row(children: [Icon(selectedOption == 0 ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: selectedOption == 0 ? accent : textMuted), const SizedBox(width: 12), const Text('Share without Edit Logs', style: TextStyle(fontWeight: FontWeight.w600, color: textDark, fontSize: 16))])),
               ),
-              
-              // Custom Radio Option 2
               InkWell(
-                onTap: () => setSheetState(() => selectedOption = 1),
-                borderRadius: BorderRadius.circular(12),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: Row(
-                    children: [
-                      Icon(selectedOption == 1 ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: selectedOption == 1 ? accent : textMuted),
-                      const SizedBox(width: 12),
-                      const Text('Share including Edit Logs', style: TextStyle(fontWeight: FontWeight.w600, color: textDark, fontSize: 16)),
-                    ],
-                  ),
-                ),
+                onTap: () => setSheetState(() => selectedOption = 1), borderRadius: BorderRadius.circular(12),
+                child: Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Row(children: [Icon(selectedOption == 1 ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: selectedOption == 1 ? accent : textMuted), const SizedBox(width: 12), const Text('Share including Edit Logs', style: TextStyle(fontWeight: FontWeight.w600, color: textDark, fontSize: 16))])),
               ),
-              
               const SizedBox(height: 24),
-              SizedBox(
-                width: double.infinity,
-                child: ElevatedButton.icon(
-                  onPressed: () => Navigator.pop(ctx),
-                  icon: const Icon(Icons.share, color: Colors.white, size: 18),
-                  label: const Text('Share Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                  style: ElevatedButton.styleFrom(backgroundColor: accent, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))),
-                ),
-              )
+              SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.share, color: Colors.white, size: 18), label: const Text('Share Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: accent, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)))))
             ],
           ),
         ),
       )
     );
   }
-
 
   Widget _buildGridItem(String title, String val, IconData icon) {
     return Column(
@@ -186,8 +135,8 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     final Color eColor = isIn ? success : danger;
     final Color eBg = isIn ? successLight : dangerLight;
 
-    final dateStr = DateFormat('dd MMM yyyy').format(DateTime.fromMillisecondsSinceEpoch(_currentEntry.timestamp));
-    final timeStr = DateFormat('hh:mm a').format(DateTime.fromMillisecondsSinceEpoch(_currentEntry.timestamp));
+    final dateStr = DateFormat('MMM d, yyyy').format(DateTime.fromMillisecondsSinceEpoch(_currentEntry.timestamp));
+    final timeStr = DateFormat('h:mm a').format(DateTime.fromMillisecondsSinceEpoch(_currentEntry.timestamp));
 
     return Scaffold(
       appBar: AppBar(
@@ -200,7 +149,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          // MAIN CARD
           Container(
             padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: borderCol)),
@@ -220,7 +168,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
                 Text(_currentEntry.note, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: textDark)),
                 const Divider(height: 32, color: borderCol),
                 
-                // GRID FOR FIELDS
                 GridView.count(
                   crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
                   childAspectRatio: 3.0, mainAxisSpacing: 8, crossAxisSpacing: 12,
@@ -234,7 +181,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
           ),
           const SizedBox(height: 16),
 
-          // CREATED CARD
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
@@ -248,7 +194,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
           ),
           const SizedBox(height: 24),
 
-                   // EDIT HISTORY
           const Padding(padding: EdgeInsets.only(left: 8, bottom: 12), child: Text('EDIT HISTORY', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textLight, letterSpacing: 1.2))),
           
           if (_isLoadingLogs)
@@ -260,7 +205,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
               child: const Text('No edit history found.', style: TextStyle(color: textMuted, fontWeight: FontWeight.w500)),
             )
           else
-            // Compact mapping for logs
             ...groupedLogs.keys.map((timestamp) {
               final logs = groupedLogs[timestamp]!;
               return Container(
