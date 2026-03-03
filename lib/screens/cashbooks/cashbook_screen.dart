@@ -73,20 +73,32 @@ class _CashbookScreenState extends State<CashbookScreen> {
     return amt < 0 ? '-₹$formatted' : '₹$formatted';
   }
 
-  void _openFilter(String type) async {
+  // FIXED: Using .then() completely avoids the async/await context gap linter errors
+  void _openFilter(String type) {
     if (type == 'type') {
-      final res = await FilterDialogs.showSelectionDialog(context, 'Entry Type', ['All Entries', 'Cash In', 'Cash Out'], false);
-      if (res != null && res.isNotEmpty) setState(() => _filterType = res.first);
+      FilterDialogs.showSelectionDialog(context, 'Entry Type', ['All Entries', 'Cash In', 'Cash Out'], false).then((res) {
+        if (res != null && res.isNotEmpty && mounted) {
+          setState(() => _filterType = res.first);
+        }
+      });
     } else if (type == 'category') {
-      final opts = await DatabaseHelper.instance.getAllOptions('Category');
-      if (!context.mounted) return;
-      final res = await FilterDialogs.showSelectionDialog(context, 'Categories', opts.map((e)=>e.value).toList(), true);
-      if (res != null) setState(() => _filterCategories = res);
+      DatabaseHelper.instance.getAllOptions('Category').then((opts) {
+        if (!mounted) return;
+        FilterDialogs.showSelectionDialog(context, 'Categories', opts.map((e)=>e.value).toList(), true).then((res) {
+          if (res != null && mounted) {
+            setState(() => _filterCategories = res);
+          }
+        });
+      });
     } else if (type == 'payment') {
-      final opts = await DatabaseHelper.instance.getAllOptions('Payment Method');
-      if (!context.mounted) return;
-      final res = await FilterDialogs.showSelectionDialog(context, 'Payment Method', opts.map((e)=>e.value).toList(), true);
-      if (res != null) setState(() => _filterPayments = res);
+      DatabaseHelper.instance.getAllOptions('Payment Method').then((opts) {
+        if (!mounted) return;
+        FilterDialogs.showSelectionDialog(context, 'Payment Method', opts.map((e)=>e.value).toList(), true).then((res) {
+          if (res != null && mounted) {
+            setState(() => _filterPayments = res);
+          }
+        });
+      });
     }
   }
 
