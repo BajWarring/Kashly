@@ -8,7 +8,6 @@ import '../../core/theme.dart';
 import 'add_entry_screen.dart';
 import 'entry_details_screen.dart';
 import 'generate_report_screen.dart';
-import 'sub_cashbooks/sub_books_sheet.dart'; 
 
 class CashbookScreen extends StatefulWidget {
   final Book book;
@@ -41,7 +40,6 @@ class _CashbookScreenState extends State<CashbookScreen> {
   Future<void> _loadEntries() async {
     setState(() => _isLoading = true);
     
-    // Refresh book balance locally just in case transfers happened
     final currentBook = await DatabaseHelper.instance.getBookById(widget.book.id);
     if (currentBook != null) widget.book.balance = currentBook.balance;
 
@@ -128,19 +126,9 @@ class _CashbookScreenState extends State<CashbookScreen> {
     }
 
     return AppBar(
-      title: Column(
-        children: [
-          Text(widget.book.name),
-          if (widget.book.parentId != null) const Text('Sub-Book (Read Only)', style: TextStyle(fontSize: 10, color: textLight, fontWeight: FontWeight.bold))
-        ],
-      ),
+      title: Text(widget.book.name),
       actions: [
         IconButton(icon: const Icon(Icons.search), onPressed: () => setState(() => _isSearchActive = true)),
-        if (widget.book.parentId == null) 
-          IconButton(
-            icon: const Icon(Icons.account_tree_outlined), 
-            onPressed: () => showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (ctx) => SubBooksSheet(mainBook: widget.book)).then((_) => _loadEntries())
-          ),
       ],
     );
   }
@@ -281,20 +269,17 @@ class _CashbookScreenState extends State<CashbookScreen> {
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      // FIXED: Hides the FABs if the current book is a Sub-Book (parentId != null)
-      floatingActionButton: widget.book.parentId == null 
-        ? Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(child: FloatingActionButton.extended(heroTag: 'in', onPressed: () => _openAddEntryScreen('in'), backgroundColor: success, elevation: 4, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), icon: const Icon(Icons.add, color: Colors.white), label: const Text('CASH IN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)))),
-                const SizedBox(width: 16),
-                Expanded(child: FloatingActionButton.extended(heroTag: 'out', onPressed: () => _openAddEntryScreen('out'), backgroundColor: danger, elevation: 4, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), icon: const Icon(Icons.remove, color: Colors.white), label: const Text('CASH OUT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)))),
-              ],
-            ),
-          )
-        : null, // Displays nothing on Sub-Books
+      floatingActionButton: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Expanded(child: FloatingActionButton.extended(heroTag: 'in', onPressed: () => _openAddEntryScreen('in'), backgroundColor: success, elevation: 4, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), icon: const Icon(Icons.add, color: Colors.white), label: const Text('CASH IN', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)))),
+            const SizedBox(width: 16),
+            Expanded(child: FloatingActionButton.extended(heroTag: 'out', onPressed: () => _openAddEntryScreen('out'), backgroundColor: danger, elevation: 4, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), icon: const Icon(Icons.remove, color: Colors.white), label: const Text('CASH OUT', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)))),
+          ],
+        ),
+      ),
     );
   }
 }
