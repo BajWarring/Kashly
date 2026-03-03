@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
 import '../../core/models/book.dart';
 import '../../core/models/field_option.dart';
 import '../../core/database_helper.dart';
@@ -33,32 +34,16 @@ class FilterDialogs {
                       if (isMulti) {
                         final isSelected = selected.contains(opt);
                         return CheckboxListTile(
-                          value: isSelected,
-                          activeColor: accent,
-                          contentPadding: EdgeInsets.zero,
+                          value: isSelected, activeColor: accent, contentPadding: EdgeInsets.zero,
                           title: Text(opt, style: const TextStyle(fontWeight: FontWeight.w600, color: textDark)),
-                          onChanged: (v) {
-                            setStateDialog(() {
-                              if (v == true) {
-                                selected.add(opt);
-                              } else {
-                                selected.remove(opt);
-                              }
-                            });
-                          },
+                          onChanged: (v) { setStateDialog(() { if (v == true) { selected.add(opt); } else { selected.remove(opt); } }); },
                         );
                       } else {
                         return InkWell(
                           onTap: () => setStateDialog(() => singleSelected = opt),
                           child: Padding(
                             padding: const EdgeInsets.symmetric(vertical: 8),
-                            child: Row(
-                              children: [
-                                Icon(singleSelected == opt ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: singleSelected == opt ? accent : textMuted),
-                                const SizedBox(width: 12),
-                                Text(opt, style: const TextStyle(fontWeight: FontWeight.w600, color: textDark)),
-                              ],
-                            ),
+                            child: Row(children: [Icon(singleSelected == opt ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: singleSelected == opt ? accent : textMuted), const SizedBox(width: 12), Text(opt, style: const TextStyle(fontWeight: FontWeight.w600, color: textDark))]),
                           )
                         );
                       }
@@ -81,6 +66,22 @@ class FilterDialogs {
       ),
     );
   }
+
+  // FIXED: Text Search Input Modal
+  static Future<String?> showSearchInput(BuildContext context) async {
+    final ctrl = TextEditingController();
+    return showDialog<String>(
+      context: context, 
+      builder: (ctx) => AlertDialog(
+        title: const Text('Search Entries', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: TextField(controller: ctrl, autofocus: true, decoration: InputDecoration(hintText: 'Enter exact keyword...', filled: true, fillColor: appBg, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
+        actions: [
+          TextButton(onPressed: ()=>Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: accent), onPressed: ()=>Navigator.pop(ctx, ctrl.text), child: const Text('Search', style: TextStyle(color: Colors.white))),
+        ]
+      )
+    );
+  }
 }
 
 class GenerateReportScreen extends StatefulWidget {
@@ -98,6 +99,8 @@ class _GenerateReportScreenState extends State<GenerateReportScreen> {
   String _typeDisplay = 'All Entries';
   String _catDisplay = 'All Categories';
   String _payDisplay = 'All Methods';
+  String _searchDisplay = 'Any text...';
+  String _customFieldDisplay = 'Any';
 
   Widget _buildSectionHeader(String title) {
     return Padding(padding: const EdgeInsets.only(left: 4, bottom: 12, top: 24), child: Text(title, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textLight, letterSpacing: 1.2)));
@@ -166,44 +169,64 @@ class _GenerateReportScreenState extends State<GenerateReportScreen> {
             child: Column(
               children: [
                 Row(children: [
-                  Expanded(child: _buildFilterChip('DATE', _dateDisplay, Icons.calendar_today, () {
-                    setState(() => _dateDisplay = 'Custom Date');
+                  Expanded(child: _buildFilterChip('DATE', _dateDisplay, Icons.calendar_today, () async {
+                    // FIXED: Dynamic Date Filters
+                    final res = await FilterDialogs.showSelectionDialog(context, 'Date Range', ['All Time', 'Last Week', 'Last Month', 'Last Year', 'Custom Date...'], false);
+                    if (res != null && res.isNotEmpty) {
+                      if (res.first == 'Custom Date...') {
+                        final dr = await showDateRangePicker(context: context, firstDate: DateTime(2000), lastDate: DateTime(2100), builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: const ColorScheme.light(primary: accent)), child: child!));
+                        if (dr != null) setState(() => _dateDisplay = '${DateFormat('MMM d').format(dr.start)} - ${DateFormat('MMM d').format(dr.end)}');
+                      } else {
+                        setState(() => _dateDisplay = res.first);
+                      }
+                    }
                   })),
                   const SizedBox(width: 12),
                   Expanded(child: _buildFilterChip('TYPE', _typeDisplay, Icons.swap_vert, () async {
                     final res = await FilterDialogs.showSelectionDialog(context, 'Entry Type', ['All Entries', 'Cash In', 'Cash Out'], false);
-                    if (res != null && res.isNotEmpty) {
-                      setState(() => _typeDisplay = res.first);
-                    }
+                    if (res != null && res.isNotEmpty) setState(() => _typeDisplay = res.first);
                   })),
                 ]),
                 const SizedBox(height: 12),
                 Row(children: [
-                  Expanded(child: _buildFilterChip('CATEGORY', _catDisplay, Icons.category, () async {
-                    List<FieldOption> opts = await DatabaseHelper.instance.getAllOptions('Category');
-                    List<String> optNames = opts.map((e) => e.value).toList();
-                    if (!context.mounted) return; 
-                    final res = await FilterDialogs.showSelectionDialog(context, 'Categories', optNames, true);
-                    if (res != null && res.isNotEmpty) {
-                      setState(() => _catDisplay = '${res.length} Selected');
-                    }
+                  Expanded(child: _buildFilterChip('CATEGORY', _catDisplay, Icons.category, () {
+                    DatabaseHelper.instance.getAllOptions('Category').then((opts) {
+                      if (!context.mounted) return;
+                      FilterDialogs.showSelectionDialog(context, 'Categories', opts.map((e) => e.value).toList(), true).then((res) {
+                        if (res != null && res.isNotEmpty && mounted) setState(() => _catDisplay = '${res.length} Selected');
+                      });
+                    });
                   })),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildFilterChip('PAYMENT', _payDisplay, Icons.account_balance_wallet, () async {
-                    List<FieldOption> opts = await DatabaseHelper.instance.getAllOptions('Payment Method');
-                    List<String> optNames = opts.map((e) => e.value).toList();
-                    if (!context.mounted) return; 
-                    final res = await FilterDialogs.showSelectionDialog(context, 'Payment Method', optNames, true);
-                    if (res != null && res.isNotEmpty) {
-                      setState(() => _payDisplay = '${res.length} Selected');
-                    }
+                  Expanded(child: _buildFilterChip('PAYMENT', _payDisplay, Icons.account_balance_wallet, () {
+                    DatabaseHelper.instance.getAllOptions('Payment Method').then((opts) {
+                      if (!context.mounted) return;
+                      FilterDialogs.showSelectionDialog(context, 'Payment Method', opts.map((e) => e.value).toList(), true).then((res) {
+                        if (res != null && res.isNotEmpty && mounted) setState(() => _payDisplay = '${res.length} Selected');
+                      });
+                    });
                   })),
                 ]),
                 const SizedBox(height: 12),
                 Row(children: [
-                  Expanded(child: _buildFilterChip('SEARCH', 'Any text...', Icons.search, () {})),
+                  Expanded(child: _buildFilterChip('SEARCH', _searchDisplay, Icons.search, () async {
+                    final res = await FilterDialogs.showSearchInput(context);
+                    if (res != null) setState(() => _searchDisplay = res.isEmpty ? 'Any text...' : '"$res"');
+                  })),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildFilterChip('CUSTOM FIELD', 'Any', Icons.dashboard_customize, () {})),
+                  Expanded(child: _buildFilterChip('CUSTOM FIELD', _customFieldDisplay, Icons.dashboard_customize, () {
+                    // FIXED: Dynamic Custom Field Search Integration
+                    DatabaseHelper.instance.getCustomFieldsForBook(widget.book.id).then((cFields) {
+                      if (!context.mounted) return;
+                      if (cFields.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No custom fields found in this cashbook.')));
+                        return;
+                      }
+                      FilterDialogs.showSelectionDialog(context, 'Filter by Custom Field', cFields.map((e) => e.name).toList(), true).then((res) {
+                        if (res != null && res.isNotEmpty && mounted) setState(() => _customFieldDisplay = '${res.length} Selected');
+                      });
+                    });
+                  })),
                 ]),
               ],
             ),
