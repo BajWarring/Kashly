@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../core/models/book.dart';
-import '../../core/models/field_option.dart';
 import '../../core/database_helper.dart';
 import '../../core/theme.dart';
 
@@ -67,7 +66,6 @@ class FilterDialogs {
     );
   }
 
-  // FIXED: Text Search Input Modal
   static Future<String?> showSearchInput(BuildContext context) async {
     final ctrl = TextEditingController();
     return showDialog<String>(
@@ -170,11 +168,14 @@ class _GenerateReportScreenState extends State<GenerateReportScreen> {
               children: [
                 Row(children: [
                   Expanded(child: _buildFilterChip('DATE', _dateDisplay, Icons.calendar_today, () async {
-                    // FIXED: Dynamic Date Filters
                     final res = await FilterDialogs.showSelectionDialog(context, 'Date Range', ['All Time', 'Last Week', 'Last Month', 'Last Year', 'Custom Date...'], false);
                     if (res != null && res.isNotEmpty) {
                       if (res.first == 'Custom Date...') {
                         final dr = await showDateRangePicker(context: context, firstDate: DateTime(2000), lastDate: DateTime(2100), builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: const ColorScheme.light(primary: accent)), child: child!));
+                        
+                        // FIXED: Added mounted check here to satisfy linter
+                        if (!context.mounted) return; 
+
                         if (dr != null) setState(() => _dateDisplay = '${DateFormat('MMM d').format(dr.start)} - ${DateFormat('MMM d').format(dr.end)}');
                       } else {
                         setState(() => _dateDisplay = res.first);
@@ -215,7 +216,6 @@ class _GenerateReportScreenState extends State<GenerateReportScreen> {
                   })),
                   const SizedBox(width: 12),
                   Expanded(child: _buildFilterChip('CUSTOM FIELD', _customFieldDisplay, Icons.dashboard_customize, () {
-                    // FIXED: Dynamic Custom Field Search Integration
                     DatabaseHelper.instance.getCustomFieldsForBook(widget.book.id).then((cFields) {
                       if (!context.mounted) return;
                       if (cFields.isEmpty) {
