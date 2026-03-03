@@ -64,6 +64,70 @@ class _SubBooksSheetState extends State<SubBooksSheet> {
     }
   }
 
+  void _renameSubBook(Book sb) async {
+    final ctrl = TextEditingController(text: sb.name);
+    final newName = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Rename Sub Book', style: TextStyle(fontWeight: FontWeight.bold)),
+        content: TextField(
+          controller: ctrl, autofocus: true, textCapitalization: TextCapitalization.words,
+          decoration: InputDecoration(filled: true, fillColor: appBg, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: accent), onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Save', style: TextStyle(color: Colors.white))),
+        ]
+      )
+    );
+
+    if (newName != null && newName.trim().isNotEmpty) {
+      sb.name = newName.trim();
+      await DatabaseHelper.instance.updateBook(sb);
+      _loadSubBooks();
+    }
+  }
+
+  void _deleteSubBook(Book sb) async {
+    final ctrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        title: const Text('Delete Sub Book', style: TextStyle(color: danger, fontWeight: FontWeight.bold)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('This will delete the sub-book and all entries inside it permanently.', style: TextStyle(fontSize: 13, color: textMuted)),
+            const SizedBox(height: 16),
+            TextField(
+              controller: ctrl, autofocus: true, 
+              decoration: InputDecoration(hintText: 'Type "${sb.name}" to confirm', filled: true, fillColor: dangerLight, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          StatefulBuilder(
+            builder: (c, setD) {
+              ctrl.addListener(() => setD((){}));
+              return ElevatedButton(
+                style: ElevatedButton.styleFrom(backgroundColor: danger),
+                onPressed: ctrl.text == sb.name ? () async {
+                  await DatabaseHelper.instance.deleteBook(sb.id);
+                  if (!ctx.mounted) return;
+                  Navigator.pop(ctx);
+                  _loadSubBooks();
+                } : null, 
+                child: const Text('Delete', style: TextStyle(color: Colors.white))
+              );
+            }
+          )
+        ]
+      )
+    );
+  }
+
   String _formatCur(double amt) {
     String sym = worldCurrencies.firstWhere((c) => c.code == widget.mainBook.currency, orElse: () => worldCurrencies[0]).symbol;
     String formatted = amt.abs().toStringAsFixed(2).replaceAllMapped(RegExp(r'(\d{1,3})(?=(\d{3})+(?!\d))'), (Match m) => '${m[1]},');
@@ -101,7 +165,25 @@ class _SubBooksSheetState extends State<SubBooksSheet> {
                       contentPadding: EdgeInsets.zero,
                       leading: Container(width: 40, height: 40, decoration: BoxDecoration(color: accentLight, borderRadius: BorderRadius.circular(12)), child: const Icon(Icons.account_tree, color: accent, size: 20)),
                       title: Text(sb.name, style: const TextStyle(fontWeight: FontWeight.bold, color: textDark)),
-                      trailing: Text(_formatCur(sb.balance), style: TextStyle(fontWeight: FontWeight.w900, color: sb.balance < 0 ? danger : success)),
+                      trailing: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(_formatCur(sb.balance), style: TextStyle(fontWeight: FontWeight.w900, color: sb.balance < 0 ? danger : success)),
+                          PopupMenuButton<String>(
+                            icon: const Icon(Icons.more_vert, color: textMuted),
+                            padding: EdgeInsets.zero,
+                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                            onSelected: (v) {
+                              if (v == 'rename') _renameSubBook(sb);
+                              if (v == 'delete') _deleteSubBook(sb);
+                            },
+                            itemBuilder: (c) => [
+                              const PopupMenuItem(value: 'rename', child: Text('Rename')),
+                              const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: danger))),
+                            ]
+                          )
+                        ],
+                      ),
                       onTap: () {
                         Navigator.pop(context);
                         Navigator.push(context, MaterialPageRoute(builder: (_) => CashbookScreen(book: sb)));
