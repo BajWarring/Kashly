@@ -6,6 +6,7 @@ import '../../core/models/book.dart';
 import '../../core/models/entry.dart';
 import '../../core/models/field_option.dart';
 import '../../core/models/custom_field.dart';
+import '../../core/models/currency.dart';
 import '../../core/models/edit_log.dart';
 import '../../core/database_helper.dart';
 import '../../core/theme.dart';
@@ -33,6 +34,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
 
   String selectedCategory = '';
   String selectedPayment = '';
+  String _currencySymbol = '₹';
   
   List<String> remarkSuggestions = [];
   List<FieldOption> _topCategories = [];
@@ -50,6 +52,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     super.initState();
     isCashIn = (widget.existingEntry?.type ?? widget.initialType) == 'in';
     
+    _currencySymbol = worldCurrencies.firstWhere((c) => c.code == widget.book.currency, orElse: () => worldCurrencies[0]).symbol;
+    
     if (isEdit) {
       _amountCtrl.text = widget.existingEntry!.amount.toString();
       _remarkCtrl.text = widget.existingEntry!.note;
@@ -60,7 +64,6 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       _selectedDate = d;
       _selectedTime = TimeOfDay(hour: d.hour, minute: d.minute);
 
-      // FIXED: customFields is already a Map, no jsonDecode needed!
       if (widget.existingEntry!.customFields.isNotEmpty) {
         widget.existingEntry!.customFields.forEach((key, value) {
           _customFieldValues[key] = value.toString();
@@ -200,9 +203,10 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
     return InkWell(
       onTap: () => onSelect(label), borderRadius: BorderRadius.circular(12),
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-        decoration: BoxDecoration(color: isSelected ? activeBg : appBg, borderRadius: BorderRadius.circular(12), border: Border.all(color: isSelected ? activeColor : borderCol)),
-        child: Text(label, style: TextStyle(fontWeight: FontWeight.w600, color: isSelected ? activeColor : textMuted)),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        // Increased unselected visibility
+        decoration: BoxDecoration(color: isSelected ? activeBg : Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: isSelected ? activeColor : borderCol, width: 1.5)),
+        child: Text(label, style: TextStyle(fontWeight: FontWeight.w600, color: isSelected ? activeColor : textDark)),
       ),
     );
   }
@@ -215,12 +219,12 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       List<String> opts = field.options.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList();
       inputWidget = Container(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol, width: 1.5)),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
             isExpanded: true,
             value: opts.contains(val) ? val : null,
-            hint: const Text('Select option'),
+            hint: Text('Select option', style: TextStyle(color: textMuted)),
             items: opts.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList(),
             onChanged: (newValue) => setState(() => _customFieldValues[field.id] = newValue!),
           ),
@@ -236,13 +240,13 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       List<String> contacts = ['John Doe', 'Jane Smith', 'Supplier A', 'Vendor B']; 
       inputWidget = Container(
         padding: const EdgeInsets.symmetric(horizontal: 16),
-        decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
+        decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol, width: 1.5)),
         child: DropdownButtonHideUnderline(
           child: DropdownButton<String>(
             isExpanded: true,
             icon: const Icon(Icons.contact_page, color: textMuted),
             value: contacts.contains(val) ? val : null,
-            hint: const Text('Select from Contacts'),
+            hint: Text('Select from Contacts', style: TextStyle(color: textMuted)),
             items: contacts.map((String value) => DropdownMenuItem<String>(value: value, child: Text(value))).toList(),
             onChanged: (newValue) => setState(() => _customFieldValues[field.id] = newValue!),
           ),
@@ -252,7 +256,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       inputWidget = TextField(
         onChanged: (text) => _customFieldValues[field.id] = text,
         controller: TextEditingController(text: val)..selection = TextSelection.collapsed(offset: val.length),
-        decoration: InputDecoration(hintText: 'Enter ${field.name}', filled: true, fillColor: appBg, border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: activeColor, width: 2))),
+        decoration: InputDecoration(hintText: 'Enter ${field.name}', hintStyle: TextStyle(color: textMuted), filled: true, fillColor: Colors.white, border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol, width: 1.5)), enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol, width: 1.5)), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: activeColor, width: 2))),
       );
     }
 
@@ -287,9 +291,9 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
 
           Row(
             children: [
-              Expanded(child: InkWell(onTap: _pickDateTime, borderRadius: BorderRadius.circular(16), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14), decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)), child: Row(children: [Icon(Icons.calendar_today, size: 18, color: activeColor), const SizedBox(width: 8), Expanded(child: Text(_formatDate(_selectedDate), style: const TextStyle(fontWeight: FontWeight.bold, color: textDark, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis))])))),
+              Expanded(child: InkWell(onTap: _pickDateTime, borderRadius: BorderRadius.circular(16), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol, width: 1.5)), child: Row(children: [Icon(Icons.calendar_today, size: 18, color: activeColor), const SizedBox(width: 8), Expanded(child: Text(_formatDate(_selectedDate), style: const TextStyle(fontWeight: FontWeight.bold, color: textDark, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis))])))),
               const SizedBox(width: 12),
-              Expanded(child: InkWell(onTap: _pickTime, borderRadius: BorderRadius.circular(16), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14), decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)), child: Row(children: [Icon(Icons.access_time_filled, size: 18, color: activeColor), const SizedBox(width: 8), Expanded(child: Text(_formatTime(_selectedTime), style: const TextStyle(fontWeight: FontWeight.bold, color: textDark, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis))])))),
+              Expanded(child: InkWell(onTap: _pickTime, borderRadius: BorderRadius.circular(16), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol, width: 1.5)), child: Row(children: [Icon(Icons.access_time_filled, size: 18, color: activeColor), const SizedBox(width: 8), Expanded(child: Text(_formatTime(_selectedTime), style: const TextStyle(fontWeight: FontWeight.bold, color: textDark, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis))])))),
             ],
           ),
           const SizedBox(height: 24),
@@ -298,13 +302,20 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           const SizedBox(height: 8),
           TextField(
             controller: _amountCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true),
-            style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: activeColor),
+            style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: textDark),
             decoration: InputDecoration(
-              prefixText: '₹ ', prefixStyle: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: activeColor.withValues(alpha: 0.5)),
-              filled: true, fillColor: activeBg.withValues(alpha: 0.3), contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: borderCol)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: borderCol)),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: activeColor, width: 2)),
+              // FIXED: Prefix icon visible at all times
+              prefixIcon: Padding(
+                padding: const EdgeInsets.only(left: 16, right: 8),
+                child: Column(mainAxisAlignment: MainAxisAlignment.center, mainAxisSize: MainAxisSize.min, children: [Text(_currencySymbol, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900, color: textDark))]),
+              ),
+              hintText: '0.00', hintStyle: TextStyle(color: textLight),
+              filled: true, fillColor: Colors.white, 
+              // FIXED: Padding identically matched to Remarks
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol, width: 1.5)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol, width: 1.5)),
+              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: activeColor, width: 2)),
             ),
           ),
           const SizedBox(height: 24),
@@ -312,12 +323,13 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           const Text('REMARKS *', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textMuted, letterSpacing: 1)),
           const SizedBox(height: 8),
           TextField(
-            controller: _remarkCtrl, style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: activeColor),
+            controller: _remarkCtrl, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textDark),
             decoration: InputDecoration(
-              hintText: 'What was this for?', hintStyle: const TextStyle(color: textLight, fontWeight: FontWeight.normal),
-              filled: true, fillColor: appBg,
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol)),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol)),
+              hintText: 'What was this for?', hintStyle: TextStyle(color: textMuted, fontWeight: FontWeight.normal),
+              filled: true, fillColor: Colors.white,
+              contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+              border: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol, width: 1.5)),
+              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: const BorderSide(color: borderCol, width: 1.5)),
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: activeColor, width: 2)),
             ),
           ),
@@ -333,7 +345,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             spacing: 10, runSpacing: 10,
             children: [
               ..._topCategories.map((c) => _buildQuickChip(c.value, selectedCategory, (val) => setState(()=>selectedCategory = val))),
-              InkWell(onTap: () => _openManageOptions('Category'), borderRadius: BorderRadius.circular(12), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: borderCol, style: BorderStyle.solid)), child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.tune, size: 14, color: textMuted), SizedBox(width: 6), Text('More', style: TextStyle(fontWeight: FontWeight.w600, color: textMuted))]))),
+              InkWell(onTap: () => _openManageOptions('Category'), borderRadius: BorderRadius.circular(12), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: borderCol, width: 1.5)), child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.tune, size: 14, color: textDark), SizedBox(width: 6), Text('More', style: TextStyle(fontWeight: FontWeight.w600, color: textDark))]))),
             ],
           ),
           const SizedBox(height: 24),
@@ -344,7 +356,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             spacing: 10, runSpacing: 10,
             children: [
               ..._topPaymentMethods.map((c) => _buildQuickChip(c.value, selectedPayment, (val) => setState(()=>selectedPayment = val))),
-              InkWell(onTap: () => _openManageOptions('Payment Method'), borderRadius: BorderRadius.circular(12), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: borderCol, style: BorderStyle.solid)), child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.tune, size: 14, color: textMuted), SizedBox(width: 6), Text('More', style: TextStyle(fontWeight: FontWeight.w600, color: textMuted))]))),
+              InkWell(onTap: () => _openManageOptions('Payment Method'), borderRadius: BorderRadius.circular(12), child: Container(padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12), border: Border.all(color: borderCol, width: 1.5)), child: const Row(mainAxisSize: MainAxisSize.min, children: [Icon(Icons.tune, size: 14, color: textDark), SizedBox(width: 6), Text('More', style: TextStyle(fontWeight: FontWeight.w600, color: textDark))]))),
             ],
           ),
           const SizedBox(height: 32),
@@ -359,8 +371,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => ManageCustomFieldsScreen(bookId: widget.book.id))).then((_) => _loadInitialData()),
             borderRadius: BorderRadius.circular(16),
             child: Container(
-              padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol, style: BorderStyle.solid)),
-              child: Row(children: [Container(padding: const EdgeInsets.all(8), decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle), child: const Icon(Icons.dashboard_customize, color: accent, size: 20)), const SizedBox(width: 16), const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Manage Custom Fields', style: TextStyle(fontWeight: FontWeight.bold, color: textDark)), Text('Add Party, Image, or Custom Text fields', style: TextStyle(fontSize: 11, color: textMuted))])), const Icon(Icons.chevron_right, color: textLight)]),
+              padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol, width: 1.5)),
+              child: Row(children: [Container(padding: const EdgeInsets.all(8), decoration: const BoxDecoration(color: appBg, shape: BoxShape.circle), child: const Icon(Icons.dashboard_customize, color: accent, size: 20)), const SizedBox(width: 16), const Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('Manage Custom Fields', style: TextStyle(fontWeight: FontWeight.bold, color: textDark)), Text('Add Party, Image, or Custom Text fields', style: TextStyle(fontSize: 11, color: textMuted))])), const Icon(Icons.chevron_right, color: textLight)]),
             ),
           ),
         ],
