@@ -21,7 +21,6 @@ class EntryDetailsScreen extends StatefulWidget {
 class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
   late Entry _currentEntry;
   Map<int, List<EditLog>> groupedLogs = {};
-  // FIXED: Added 'final' keyword to satisfy the linter
   final Map<String, String> _customFieldNames = {};
   bool _isLoadingLogs = true;
 
@@ -87,6 +86,17 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     );
 
     if (confirm == true) {
+      // --- DOUBLE ENTRY CASCADING DELETE ---
+      Entry? linked = await DatabaseHelper.instance.getLinkedEntry(_currentEntry.id);
+      if (linked != null) {
+        final lb = await DatabaseHelper.instance.getBookById(linked.bookId);
+        if (lb != null) {
+          lb.balance += (linked.type == 'in' ? -linked.amount : linked.amount);
+          await DatabaseHelper.instance.updateBook(lb);
+        }
+        await DatabaseHelper.instance.deleteEntry(linked.id);
+      }
+
       await DatabaseHelper.instance.deleteEntry(_currentEntry.id);
       double amountToReverse = _currentEntry.type == 'in' ? -_currentEntry.amount : _currentEntry.amount;
       widget.book.balance += amountToReverse;
