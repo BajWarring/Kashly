@@ -8,6 +8,7 @@ import '../../core/theme.dart';
 import 'add_entry_screen.dart';
 import 'entry_details_screen.dart';
 import 'generate_report_screen.dart';
+import 'sub_cashbooks/sub_books_sheet.dart'; // NEW IMPORT
 
 class CashbookScreen extends StatefulWidget {
   final Book book;
@@ -40,6 +41,10 @@ class _CashbookScreenState extends State<CashbookScreen> {
   Future<void> _loadEntries() async {
     setState(() => _isLoading = true);
     
+    // Refresh book balance locally just in case transfers happened
+    final currentBook = await DatabaseHelper.instance.getBookById(widget.book.id);
+    if (currentBook != null) widget.book.balance = currentBook.balance;
+
     final data = await DatabaseHelper.instance.getEntriesForBook(widget.book.id);
     
     double running = 0;
@@ -123,9 +128,19 @@ class _CashbookScreenState extends State<CashbookScreen> {
     }
 
     return AppBar(
-      title: Text(widget.book.name),
+      title: Column(
+        children: [
+          Text(widget.book.name),
+          if (widget.book.parentId != null) const Text('Sub-Book', style: TextStyle(fontSize: 10, color: textLight, fontWeight: FontWeight.bold))
+        ],
+      ),
       actions: [
         IconButton(icon: const Icon(Icons.search), onPressed: () => setState(() => _isSearchActive = true)),
+        if (widget.book.parentId == null) // Show Sub Books icon only on Main Books
+          IconButton(
+            icon: const Icon(Icons.account_tree_outlined), 
+            onPressed: () => showModalBottomSheet(context: context, isScrollControlled: true, backgroundColor: Colors.transparent, builder: (ctx) => SubBooksSheet(mainBook: widget.book)).then((_) => _loadEntries())
+          ),
       ],
     );
   }
@@ -151,7 +166,6 @@ class _CashbookScreenState extends State<CashbookScreen> {
         ? const Center(child: CircularProgressIndicator(color: accent)) 
         : Column(
         children: [
-          // FIXED: Compact Summary Card
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), 
             padding: const EdgeInsets.all(16),
@@ -215,7 +229,6 @@ class _CashbookScreenState extends State<CashbookScreen> {
                     if (showDateHeader)
                       Padding(padding: const EdgeInsets.only(left: 20, top: 12, bottom: 4), child: Text(dateStr.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textLight, letterSpacing: 1))),
                     
-                    // FIXED: Compact Entry Card
                     Container(
                       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
