@@ -17,7 +17,6 @@ class BookDetailsScreen extends StatefulWidget {
 
 class _BookDetailsScreenState extends State<BookDetailsScreen> {
   late Book _book;
-  List<Book> _subBooks = [];
   String? _editingField; 
   final _editCtrl = TextEditingController();
 
@@ -25,13 +24,6 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
   void initState() {
     super.initState();
     _book = widget.book;
-    _loadSubBooks();
-  }
-
-  Future<void> _loadSubBooks() async {
-    final data = await DatabaseHelper.instance.getSubBooks(_book.id);
-    if (!mounted) return;
-    setState(() { _subBooks = data; });
   }
 
   void _saveEdit() async {
@@ -43,62 +35,6 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
       _editingField = null;
     });
     await DatabaseHelper.instance.updateBook(_book);
-  }
-
-  void _renameSubBook(Book sb) async {
-    final ctrl = TextEditingController(text: sb.name);
-    final newName = await showDialog<String>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Rename Sub Book'),
-        content: TextField(controller: ctrl, autofocus: true, decoration: InputDecoration(filled: true, fillColor: appBg, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: accent), onPressed: () => Navigator.pop(ctx, ctrl.text), child: const Text('Save', style: TextStyle(color: Colors.white)))
-        ]
-      )
-    );
-    if (newName != null && newName.trim().isNotEmpty) {
-      sb.name = newName.trim();
-      await DatabaseHelper.instance.updateBook(sb);
-      _loadSubBooks();
-    }
-  }
-
-  void _deleteSubBook(Book sb) {
-    final ctrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Delete Sub Book', style: TextStyle(color: danger)),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Text('This will delete the sub-book and all its entries permanently.', style: TextStyle(fontSize: 13, color: textMuted)),
-            const SizedBox(height: 16),
-            TextField(controller: ctrl, autofocus: true, decoration: InputDecoration(hintText: 'Type "${sb.name}" to confirm', filled: true, fillColor: dangerLight, border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none))),
-          ],
-        ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
-          StatefulBuilder(
-            builder: (c, setD) {
-              ctrl.addListener(() => setD((){}));
-              return ElevatedButton(
-                style: ElevatedButton.styleFrom(backgroundColor: danger),
-                onPressed: ctrl.text == sb.name ? () async {
-                  await DatabaseHelper.instance.deleteBook(sb.id);
-                  if (!ctx.mounted) return;
-                  Navigator.pop(ctx);
-                  _loadSubBooks();
-                } : null, 
-                child: const Text('Delete', style: TextStyle(color: Colors.white))
-              );
-            }
-          )
-        ]
-      )
-    );
   }
 
   void _pickIcon() {
@@ -132,7 +68,14 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
                   child: Container(
                     width: 64, height: 64,
                     decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol, style: BorderStyle.solid)),
-                    child: const Column(mainAxisAlignment: MainAxisAlignment.center, children: [Icon(Icons.upload, color: textMuted, size: 20), SizedBox(height: 4), Text('Gallery', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: textMuted))]),
+                    child: const Column(
+                      mainAxisAlignment: MainAxisAlignment.center, 
+                      children: [
+                        Icon(Icons.upload, color: textMuted, size: 20), 
+                        SizedBox(height: 4), 
+                        Text('Gallery', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: textMuted))
+                      ]
+                    ),
                   ),
                 ),
                 ...availableIcons.keys.map((key) => InkWell(
@@ -345,46 +288,6 @@ class _BookDetailsScreenState extends State<BookDetailsScreen> {
             ),
           ),
           const SizedBox(height: 32),
-
-          // --- NEW: SUB BOOKS MANAGEMENT ---
-          if (_book.parentId == null) ...[
-            const Text('SUB BOOKS', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textLight, letterSpacing: 1.2)),
-            const SizedBox(height: 8),
-            Container(
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: borderCol)),
-              child: _subBooks.isEmpty 
-                ? const Padding(padding: EdgeInsets.all(24), child: Center(child: Text('No sub-books connected.', style: TextStyle(color: textMuted, fontWeight: FontWeight.w500))))
-                : Column(
-                    children: _subBooks.asMap().entries.map((entry) {
-                      int idx = entry.key;
-                      Book sb = entry.value;
-                      return Column(
-                        children: [
-                          ListTile(
-                            contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
-                            leading: const Icon(Icons.account_tree_outlined, color: textLight),
-                            title: Text(sb.name, style: const TextStyle(fontWeight: FontWeight.bold, color: textDark)),
-                            trailing: PopupMenuButton<String>(
-                              icon: const Icon(Icons.more_vert, color: textMuted),
-                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                              onSelected: (v) {
-                                if (v == 'rename') _renameSubBook(sb);
-                                if (v == 'delete') _deleteSubBook(sb);
-                              },
-                              itemBuilder: (c) => [
-                                const PopupMenuItem(value: 'rename', child: Text('Rename')),
-                                const PopupMenuItem(value: 'delete', child: Text('Delete', style: TextStyle(color: danger))),
-                              ]
-                            )
-                          ),
-                          if (idx != _subBooks.length - 1) const Divider(height: 1, color: borderCol),
-                        ],
-                      );
-                    }).toList(),
-                  ),
-            ),
-            const SizedBox(height: 32),
-          ],
 
           const Text('METADATA', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textLight, letterSpacing: 1.2)),
           const SizedBox(height: 8),
