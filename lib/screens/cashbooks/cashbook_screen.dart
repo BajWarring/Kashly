@@ -73,7 +73,6 @@ class _CashbookScreenState extends State<CashbookScreen> {
     return amt < 0 ? '-₹$formatted' : '₹$formatted';
   }
 
-  // FIXED: Using .then() completely avoids the async/await context gap linter errors
   void _openFilter(String type) {
     if (type == 'type') {
       FilterDialogs.showSelectionDialog(context, 'Entry Type', ['All Entries', 'Cash In', 'Cash Out'], false).then((res) {
@@ -152,30 +151,32 @@ class _CashbookScreenState extends State<CashbookScreen> {
         ? const Center(child: CircularProgressIndicator(color: accent)) 
         : Column(
         children: [
+          // FIXED: Compact Summary Card
           Container(
-            margin: const EdgeInsets.all(16), padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(24), border: Border.all(color: borderCol)),
+            margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), 
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderCol)),
             child: Column(
               children: [
                 const Text('OVERALL BALANCE', style: TextStyle(color: textMuted, fontSize: 11, fontWeight: FontWeight.bold, letterSpacing: 1)),
-                const SizedBox(height: 4),
-                Text(_formatCur(widget.book.balance), style: const TextStyle(color: textDark, fontSize: 32, fontWeight: FontWeight.w900)),
-                const SizedBox(height: 20),
+                const SizedBox(height: 2),
+                Text(_formatCur(widget.book.balance), style: const TextStyle(color: textDark, fontSize: 28, fontWeight: FontWeight.w900)),
+                const SizedBox(height: 16),
                 Row(
                   children: [
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Total Cash In', style: TextStyle(color: textMuted, fontSize: 12, fontWeight: FontWeight.w600)), const SizedBox(height: 2), Text(_formatCur(totalIn), style: const TextStyle(color: success, fontWeight: FontWeight.bold, fontSize: 16))])),
-                    Container(width: 1, height: 30, color: borderCol),
-                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [const Text('Total Cash Out', style: TextStyle(color: textMuted, fontSize: 12, fontWeight: FontWeight.w600)), const SizedBox(height: 2), Text(_formatCur(totalOut), style: const TextStyle(color: danger, fontWeight: FontWeight.bold, fontSize: 16))])),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Total Cash In', style: TextStyle(color: textMuted, fontSize: 11, fontWeight: FontWeight.w600)), const SizedBox(height: 2), Text(_formatCur(totalIn), style: const TextStyle(color: success, fontWeight: FontWeight.bold, fontSize: 15))])),
+                    Container(width: 1, height: 24, color: borderCol),
+                    Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.end, children: [const Text('Total Cash Out', style: TextStyle(color: textMuted, fontSize: 11, fontWeight: FontWeight.w600)), const SizedBox(height: 2), Text(_formatCur(totalOut), style: const TextStyle(color: danger, fontWeight: FontWeight.bold, fontSize: 15))])),
                   ],
                 ),
-                const SizedBox(height: 20),
+                const SizedBox(height: 16),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
                     onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => GenerateReportScreen(book: widget.book))),
-                    icon: const Icon(Icons.picture_as_pdf, size: 18, color: Colors.white),
-                    label: const Text('Generate Reports', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-                    style: ElevatedButton.styleFrom(backgroundColor: accent, elevation: 0, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
+                    icon: const Icon(Icons.picture_as_pdf, size: 16, color: Colors.white),
+                    label: const Text('Generate Reports', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 13)),
+                    style: ElevatedButton.styleFrom(backgroundColor: accent, elevation: 0, padding: const EdgeInsets.symmetric(vertical: 10), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
                   ),
                 )
               ],
@@ -183,7 +184,7 @@ class _CashbookScreenState extends State<CashbookScreen> {
           ),
 
           Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 4),
             child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Showing ${displayEntries.length} Entries', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted))]),
           ),
 
@@ -212,8 +213,9 @@ class _CashbookScreenState extends State<CashbookScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (showDateHeader)
-                      Padding(padding: const EdgeInsets.only(left: 20, top: 16, bottom: 8), child: Text(dateStr.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textLight, letterSpacing: 1))),
+                      Padding(padding: const EdgeInsets.only(left: 20, top: 12, bottom: 4), child: Text(dateStr.toUpperCase(), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textLight, letterSpacing: 1))),
                     
+                    // FIXED: Compact Entry Card
                     Container(
                       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
                       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
@@ -221,11 +223,11 @@ class _CashbookScreenState extends State<CashbookScreen> {
                         borderRadius: BorderRadius.circular(16),
                         onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EntryDetailsScreen(entry: entry, book: widget.book))).then((_) => _loadEntries()),
                         child: Padding(
-                          padding: const EdgeInsets.all(16),
+                          padding: const EdgeInsets.all(12),
                           child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                            crossAxisAlignment: CrossAxisAlignment.center,
                             children: [
-                              Container(width: 40, height: 40, decoration: BoxDecoration(color: eBg, borderRadius: BorderRadius.circular(12)), child: Icon(isIn ? Icons.arrow_downward : Icons.arrow_upward, color: eColor, size: 20)),
+                              Container(width: 36, height: 36, decoration: BoxDecoration(color: eBg, borderRadius: BorderRadius.circular(12)), child: Icon(isIn ? Icons.arrow_downward : Icons.arrow_upward, color: eColor, size: 18)),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Column(
@@ -233,24 +235,24 @@ class _CashbookScreenState extends State<CashbookScreen> {
                                   children: [
                                     Row(
                                       children: [
-                                        Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(6)), child: Text(entry.category, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: textMuted))),
+                                        Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(6)), child: Text(entry.category, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: textMuted))),
                                         const SizedBox(width: 6),
-                                        Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(6)), child: Text(entry.paymentMethod, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: textMuted))),
+                                        Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(6)), child: Text(entry.paymentMethod, style: const TextStyle(fontSize: 9, fontWeight: FontWeight.w600, color: textMuted))),
                                         const SizedBox(width: 8),
-                                        Text(timeStr, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textMuted)),
+                                        Text(timeStr, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: textLight)),
                                       ],
                                     ),
-                                    const SizedBox(height: 6),
-                                    Text(entry.note.isNotEmpty ? entry.note : entry.category, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textDark)),
+                                    const SizedBox(height: 4),
+                                    Text(entry.note.isNotEmpty ? entry.note : entry.category, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: textDark)),
                                   ],
                                 ),
                               ),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.end,
                                 children: [
-                                  Text((isIn ? '+' : '-') + _formatCur(entry.amount), style: TextStyle(fontSize: 15, fontWeight: FontWeight.w900, color: eColor)),
-                                  const SizedBox(height: 4),
-                                  Text('Bal: ${_formatCur(bal)}', style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: textLight)),
+                                  Text((isIn ? '+' : '-') + _formatCur(entry.amount), style: TextStyle(fontSize: 14, fontWeight: FontWeight.w900, color: eColor)),
+                                  const SizedBox(height: 2),
+                                  Text('Bal: ${_formatCur(bal)}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: textLight)),
                                 ],
                               )
                             ],
