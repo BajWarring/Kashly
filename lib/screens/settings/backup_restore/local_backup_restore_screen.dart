@@ -1,7 +1,11 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:share_plus/share_plus.dart';
+import 'package:file_picker/file_picker.dart';
+
 import '../../../../core/theme.dart';
-import 'backup_models.dart';
-import 'backup_file_tile.dart';
+import '../../../../core/database_helper.dart';
 
 class LocalBackupRestoreScreen extends StatefulWidget {
   const LocalBackupRestoreScreen({super.key});
@@ -11,30 +15,52 @@ class LocalBackupRestoreScreen extends StatefulWidget {
 }
 
 class _LocalBackupRestoreScreenState extends State<LocalBackupRestoreScreen> {
-  List<BackupFile> localBackups = [
-    BackupFile('Manual_Export_01Mar.zip', '01 Mar 2026, 09:15 AM', '4.1 MB', false),
-    BackupFile('Archive_Jan2026.zip', '31 Jan 2026, 05:00 PM', '12.5 MB', false),
-  ];
-
-  void _triggerLocalExport() async {
-    _showToast('Generating local archive...', textDark);
-    await Future.delayed(const Duration(seconds: 1));
-    
-    if (!mounted) return;
-    
-    setState(() {
-      localBackups.insert(0, BackupFile('Manual_Export_JustNow.zip', 'Just now', '4.3 MB', false));
-    });
-    _showToast('Saved to device /Downloads folder.', success);
-  }
+  bool _isLoading = false;
 
   void _showToast(String message, Color color) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
       content: Text(message, style: const TextStyle(fontWeight: FontWeight.bold)),
-      backgroundColor: color,
-      behavior: SnackBarBehavior.floating,
+      backgroundColor: color, behavior: SnackBarBehavior.floating,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
     ));
+  }
+
+  Future<void> _exportData() async {
+    setState(() => _isLoading = true);
+    try {
+      final jsonStr = await DatabaseHelper.instance.exportDatabaseJSON();
+      final directory = await getApplicationDocumentsDirectory();
+      final file = File('${directory.path}/Kashly_Manual_Backup.json');
+      await file.writeAsString(jsonStr);
+      
+      await Share.shareXFiles([XFile(file.path)], text: 'Kashly App Backup');
+    } catch (e) {
+      _showToast('Export failed', danger);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
+  }
+
+  Future<void> _importData() async {
+    try {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom, allowedExtensions: ['json'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        setState(() => _isLoading = true);
+        File file = File(result.files.single.path!);
+        String jsonStr = await file.readAsString();
+        
+        await DatabaseHelper.instance.restoreDatabaseJSON(jsonStr);
+        _showToast('Data Successfully Restored!', success);
+      }
+    } catch (e) {
+      _showToast('Import failed. Invalid file.', danger);
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -42,23 +68,22 @@ class _LocalBackupRestoreScreenState extends State<LocalBackupRestoreScreen> {
     return ListView(
       padding: const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 60),
       children: [
-        // Action Controls
+        if (_isLoading)
+          const Padding(padding: EdgeInsets.only(bottom: 20), child: Center(child: CircularProgressIndicator(color: accent))),
+
         Row(
           children: [
             Expanded(
               child: InkWell(
-                onTap: _triggerLocalExport,
-                borderRadius: BorderRadius.circular(20),
+                onTap: _exportData, borderRadius: BorderRadius.circular(20),
                 child: Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderCol)),
                   child: const Column(
                     children: [
-                      Icon(Icons.download_rounded, color: accent, size: 28),
-                      SizedBox(height: 12),
+                      Icon(Icons.download_rounded, color: accent, size: 28), SizedBox(height: 12),
                       Text('Export Data', style: TextStyle(fontWeight: FontWeight.bold, color: textDark)),
-                      SizedBox(height: 4),
-                      Text('Save to device', style: TextStyle(fontSize: 11, color: textMuted)),
+                      SizedBox(height: 4), Text('Share JSON File', style: TextStyle(fontSize: 11, color: textMuted)),
                     ],
                   ),
                 ),
@@ -67,20 +92,15 @@ class _LocalBackupRestoreScreenState extends State<LocalBackupRestoreScreen> {
             const SizedBox(width: 16),
             Expanded(
               child: InkWell(
-                onTap: () {
-                  _showToast('Opening File Explorer...', textDark);
-                },
-                borderRadius: BorderRadius.circular(20),
+                onTap: _importData, borderRadius: BorderRadius.circular(20),
                 child: Container(
                   padding: const EdgeInsets.all(20),
                   decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderCol)),
                   child: const Column(
                     children: [
-                      Icon(Icons.upload_file_rounded, color: textDark, size: 28),
-                      SizedBox(height: 12),
+                      Icon(Icons.upload_file_rounded, color: textDark, size: 28), SizedBox(height: 12),
                       Text('Import Data', style: TextStyle(fontWeight: FontWeight.bold, color: textDark)),
-                      SizedBox(height: 4),
-                      Text('Select .zip file', style: TextStyle(fontSize: 11, color: textMuted)),
+                      SizedBox(height: 4), Text('Select JSON File', style: TextStyle(fontSize: 11, color: textMuted)),
                     ],
                   ),
                 ),
@@ -88,17 +108,6 @@ class _LocalBackupRestoreScreenState extends State<LocalBackupRestoreScreen> {
             ),
           ],
         ),
-        const SizedBox(height: 32),
-
-        // Local Directory
-        const Text('LOCAL ARCHIVES', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w900, color: textLight, letterSpacing: 1.5)),
-        const SizedBox(height: 12),
-        Container(
-          decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20), border: Border.all(color: borderCol)),
-          child: Column(
-            children: localBackups.map((file) => BackupFileTile(file: file, isLast: file == localBackups.last)).toList(),
-          ),
-        )
       ],
     );
   }
