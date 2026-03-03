@@ -86,7 +86,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     );
 
     if (confirm == true) {
-      // --- DOUBLE ENTRY CASCADING DELETE ---
       Entry? linked = await DatabaseHelper.instance.getLinkedEntry(_currentEntry.id);
       if (linked != null) {
         final lb = await DatabaseHelper.instance.getBookById(linked.bookId);
@@ -162,10 +161,11 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Entry Details'),
-        actions: [
+        // FIXED: Hide Edit/Delete appbar actions if it's a Sub-Book
+        actions: widget.book.parentId == null ? [
           IconButton(icon: const Icon(Icons.edit_outlined), onPressed: _openEditEditor),
           IconButton(icon: const Icon(Icons.delete_outline, color: danger), onPressed: _deleteEntry),
-        ],
+        ] : [],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
@@ -298,8 +298,12 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
         child: Row(
           children: [
             Expanded(child: ElevatedButton.icon(onPressed: () => _showShareSheet(context), icon: const Icon(Icons.share, color: textDark), label: const Text('Share', style: TextStyle(color: textDark, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: borderCol))))),
-            const SizedBox(width: 12),
-            Expanded(flex: 2, child: ElevatedButton.icon(onPressed: _openEditEditor, icon: const Icon(Icons.edit, color: Colors.white), label: const Text('Edit Entry', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: accent, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))))),
+            
+            // FIXED: Hides the big Edit Entry FAB if it's a Sub-Book
+            if (widget.book.parentId == null) ...[
+              const SizedBox(width: 12),
+              Expanded(flex: 2, child: ElevatedButton.icon(onPressed: _openEditEditor, icon: const Icon(Icons.edit, color: Colors.white), label: const Text('Edit Entry', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: accent, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))))),
+            ]
           ],
         ),
       ),
