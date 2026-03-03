@@ -25,15 +25,22 @@ class DatabaseHelper {
     Directory documentsDirectory = await getApplicationDocumentsDirectory();
     final path = join(documentsDirectory.path, filePath);
 
+    // UPGRADED TO VERSION 2 FOR SUB-BOOKS
     return await openDatabase(
       path,
-      version: 1,
+      version: 2,
       onCreate: _createDB,
+      onUpgrade: _onUpgrade,
     );
   }
 
+  Future _onUpgrade(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE cashbooks ADD COLUMN parentId TEXT');
+    }
+  }
+
   Future _createDB(Database db, int version) async {
-    // 1. Cashbooks Table
     await db.execute('''
       CREATE TABLE cashbooks (
         id TEXT PRIMARY KEY,
@@ -43,11 +50,11 @@ class DatabaseHelper {
         createdAt INTEGER NOT NULL,
         timestamp INTEGER NOT NULL,
         currency TEXT NOT NULL,
-        icon TEXT NOT NULL
+        icon TEXT NOT NULL,
+        parentId TEXT
       )
     ''');
 
-    // 2. Entries Table
     await db.execute('''
       CREATE TABLE entries (
         id TEXT PRIMARY KEY,
@@ -64,7 +71,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // 3. Edit Logs Table
     await db.execute('''
       CREATE TABLE edit_logs (
         id TEXT PRIMARY KEY,
@@ -77,7 +83,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // 4. Field Options Table (For Categories, Payment Methods, etc.)
     await db.execute('''
       CREATE TABLE field_options (
         id TEXT PRIMARY KEY,
@@ -88,7 +93,6 @@ class DatabaseHelper {
       )
     ''');
 
-    // 5. Custom Fields Table
     await db.execute('''
       CREATE TABLE custom_fields (
         id TEXT PRIMARY KEY,
@@ -103,7 +107,7 @@ class DatabaseHelper {
   }
 
   // ==========================================
-  // CASHBOOKS
+  // CASHBOOKS & SUB-BOOKS
   // ==========================================
   Future<void> insertBook(Book book) async {
     final db = await instance.database;
@@ -112,8 +116,22 @@ class DatabaseHelper {
 
   Future<List<Book>> getAllBooks() async {
     final db = await instance.database;
-    final result = await db.query('cashbooks', orderBy: 'timestamp DESC');
+    // Hides sub-books from the main dashboard
+    final result = await db.query('cashbooks', where: 'parentId IS NULL', orderBy: 'timestamp DESC');
     return result.map((map) => Book.fromMap(map)).toList();
+  }
+
+  Future<List<Book>> getSubBooks(String parentId) async {
+    final db = await instance.database;
+    final result = await db.query('cashbooks', where: 'parentId = ?', whereArgs: [parentId], orderBy: 'timestamp DESC');
+    return result.map((map) => Book.fromMap(map)).toList();
+  }
+
+  Future<Book?> getBookById(String id) async {
+    final db = await instance.database;
+    final result = await db.query('cashbooks', where: 'id = ?', whereArgs: [id]);
+    if (result.isNotEmpty) return Book.fromMap(result.first);
+    return null;
   }
 
   Future<void> updateBook(Book book) async {
@@ -123,11 +141,21 @@ class DatabaseHelper {
 
   Future<void> deleteBook(String id) async {
     final db = await instance.database;
+    // Safely cascade delete everything inside the book
+    await db.delete('entries', where: 'bookId = ?', whereArgs: [id]);
+    await db.delete('custom_fields', where: 'bookId = ?', whereArgs: [id]);
+    
+    // Recursive delete sub-books
+    final subs = await getSubBooks(id);
+    for (var sb in subs) {
+      await deleteBook(sb.id);
+    }
+    
     await db.delete('cashbooks', where: 'id = ?', whereArgs: [id]);
   }
 
   // ==========================================
-  // ENTRIES
+  // ENTRIES & DOUBLE ENTRY LOGIC
   // ==========================================
   Future<List<Entry>> getEntriesForBook(String bookId) async {
     final db = await instance.database;
@@ -157,8 +185,26 @@ class DatabaseHelper {
     await db.delete('entries', where: 'id = ?', whereArgs: [id]);
   }
 
+  // Finds the opposite side of a Transfer to keep them synchronized
+  Future<Entry?> getLinkedEntry(String entryId) async {
+    final db = await instance.database;
+    
+    // Check if another entry links to this one
+    final r1 = await db.query('entries', where: 'linkedEntryId = ?', whereArgs: [entryId]);
+    if (r1.isNotEmpty) return Entry.fromMap(r1.first);
+    
+    // Check if this entry links to another one
+    final current = await getEntryById(entryId);
+    if (current != null && current.linkedEntryId != null) {
+      final r2 = await db.query('entries', where: 'id = ?', whereArgs: [current.linkedEntryId]);
+      if (r2.isNotEmpty) return Entry.fromMap(r2.first);
+    }
+    
+    return null;
+  }
+
   // ==========================================
-  // EDIT LOGS & SUGGESTIONS
+  // LOGS & SUGGESTIONS
   // ==========================================
   Future<List<EditLog>> getLogsForEntry(String entryId) async {
     final db = await instance.database;
@@ -173,27 +219,16 @@ class DatabaseHelper {
 
   Future<List<String>> getRecentRemarks(String bookId, {int limit = 5}) async {
     final db = await instance.database;
-    final result = await db.rawQuery('''
-      SELECT DISTINCT note FROM entries 
-      WHERE bookId = ? AND note != '' 
-      ORDER BY timestamp DESC LIMIT ?
-    ''', [bookId, limit]);
-    
+    final result = await db.rawQuery('SELECT DISTINCT note FROM entries WHERE bookId = ? AND note != "" ORDER BY timestamp DESC LIMIT ?', [bookId, limit]);
     return result.map((row) => row['note'] as String).toList();
   }
 
   // ==========================================
-  // FIELD OPTIONS (Categories, Payments, etc.)
+  // FIELD OPTIONS
   // ==========================================
   Future<List<FieldOption>> getTopOptions(String fieldName, {int limit = 5}) async {
     final db = await instance.database;
-    final result = await db.query(
-      'field_options',
-      where: 'fieldName = ?',
-      whereArgs: [fieldName],
-      orderBy: 'lastUsed DESC, usageCount DESC',
-      limit: limit,
-    );
+    final result = await db.query('field_options', where: 'fieldName = ?', whereArgs: [fieldName], orderBy: 'lastUsed DESC, usageCount DESC', limit: limit);
     return result.map((map) => FieldOption.fromMap(map)).toList();
   }
 
@@ -226,16 +261,15 @@ class DatabaseHelper {
       final opt = FieldOption.fromMap(existing.first);
       opt.usageCount += 1;
       opt.lastUsed = DateTime.now().millisecondsSinceEpoch;
-      await db.update('field_options', opt.toMap(), where: 'id = ?', whereArgs: [opt.id]);
+      await updateFieldOption(opt);
     } else {
-      final newOpt = FieldOption(
+      await insertOption(FieldOption(
         id: 'OPT-${DateTime.now().millisecondsSinceEpoch}',
         fieldName: fieldName,
         value: value,
         usageCount: 1,
-        lastUsed: DateTime.now().millisecondsSinceEpoch,
-      );
-      await insertOption(newOpt);
+        lastUsed: DateTime.now().millisecondsSinceEpoch
+      ));
     }
   }
 
@@ -244,12 +278,7 @@ class DatabaseHelper {
   // ==========================================
   Future<List<CustomField>> getCustomFieldsForBook(String bookId) async {
     final db = await instance.database;
-    final result = await db.query(
-      'custom_fields', 
-      where: 'bookId = ?', 
-      whereArgs: [bookId], 
-      orderBy: 'sortOrder ASC'
-    );
+    final result = await db.query('custom_fields', where: 'bookId = ?', whereArgs: [bookId], orderBy: 'sortOrder ASC');
     return result.map((map) => CustomField.fromMap(map)).toList();
   }
 
@@ -273,12 +302,7 @@ class DatabaseHelper {
     Batch batch = db.batch();
     for (int i = 0; i < fields.length; i++) {
       fields[i].sortOrder = i;
-      batch.update(
-        'custom_fields', 
-        fields[i].toMap(), 
-        where: 'id = ?', 
-        whereArgs: [fields[i].id]
-      );
+      batch.update('custom_fields', fields[i].toMap(), where: 'id = ?', whereArgs: [fields[i].id]);
     }
     await batch.commit(noResult: true);
   }
