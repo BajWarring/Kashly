@@ -63,7 +63,10 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
 
       if (widget.existingEntry!.customFields.isNotEmpty) {
         try {
-          Map<String, dynamic> decoded = jsonDecode(widget.existingEntry!.customFields.toString());
+          // If the model stored it as a string, decode it. If it's already a map, handle it.
+          Map<String, dynamic> decoded = widget.existingEntry!.customFields is String 
+              ? jsonDecode(widget.existingEntry!.customFields) 
+              : widget.existingEntry!.customFields;
           decoded.forEach((key, value) => _customFieldValues[key] = value.toString());
         } catch (e) {
           // Ignore parsing error
@@ -144,7 +147,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
       paymentMethod: selectedPayment,
       timestamp: combinedDate.millisecondsSinceEpoch,
       linkedEntryId: isEdit ? widget.existingEntry!.linkedEntryId : null,
-      customFields: jsonEncode(_customFieldValues),
+      // FIXED: Passed as Map instead of JSON string
+      customFields: Map<String, dynamic>.from(_customFieldValues),
     );
 
     if (isEdit) {
@@ -236,7 +240,7 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
         children: opts.map((o) => _buildQuickChip(o, val, (selected) => setState(() => _customFieldValues[field.id] = selected))).toList()
       );
     } else if (field.type == 'Contacts') {
-      List<String> contacts = ['John Doe', 'Jane Smith', 'Supplier A', 'Vendor B']; // Mocked contacts dropdown
+      List<String> contacts = ['John Doe', 'Jane Smith', 'Supplier A', 'Vendor B']; 
       inputWidget = Container(
         padding: const EdgeInsets.symmetric(horizontal: 16),
         decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
@@ -282,8 +286,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
           Container(
             padding: const EdgeInsets.all(4), decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
             child: Row(children: [
-              Expanded(child: GestureDetector(onTap: () => setState(() => isCashIn = true), child: Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: isCashIn ? success : Colors.transparent, borderRadius: BorderRadius.circular(12), boxShadow: isCashIn ? [BoxShadow(color: success.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))] : null), alignment: Alignment.center, child: Text('CASH IN', style: TextStyle(fontWeight: FontWeight.w900, color: isCashIn ? Colors.white : textMuted, letterSpacing: 0.5))))),
-              Expanded(child: GestureDetector(onTap: () => setState(() => isCashIn = false), child: Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: !isCashIn ? danger : Colors.transparent, borderRadius: BorderRadius.circular(12), boxShadow: !isCashIn ? [BoxShadow(color: danger.withOpacity(0.3), blurRadius: 4, offset: const Offset(0, 2))] : null), alignment: Alignment.center, child: Text('CASH OUT', style: TextStyle(fontWeight: FontWeight.w900, color: !isCashIn ? Colors.white : textMuted, letterSpacing: 0.5))))),
+              Expanded(child: GestureDetector(onTap: () => setState(() => isCashIn = true), child: Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: isCashIn ? success : Colors.transparent, borderRadius: BorderRadius.circular(12), boxShadow: isCashIn ? [BoxShadow(color: success.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))] : null), alignment: Alignment.center, child: Text('CASH IN', style: TextStyle(fontWeight: FontWeight.w900, color: isCashIn ? Colors.white : textMuted, letterSpacing: 0.5))))),
+              Expanded(child: GestureDetector(onTap: () => setState(() => isCashIn = false), child: Container(padding: const EdgeInsets.symmetric(vertical: 12), decoration: BoxDecoration(color: !isCashIn ? danger : Colors.transparent, borderRadius: BorderRadius.circular(12), boxShadow: !isCashIn ? [BoxShadow(color: danger.withValues(alpha: 0.3), blurRadius: 4, offset: const Offset(0, 2))] : null), alignment: Alignment.center, child: Text('CASH OUT', style: TextStyle(fontWeight: FontWeight.w900, color: !isCashIn ? Colors.white : textMuted, letterSpacing: 0.5))))),
             ]),
           ),
           const SizedBox(height: 20),
@@ -303,8 +307,8 @@ class _AddEntryScreenState extends State<AddEntryScreen> {
             controller: _amountCtrl, keyboardType: const TextInputType.numberWithOptions(decimal: true),
             style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: activeColor),
             decoration: InputDecoration(
-              prefixText: '₹ ', prefixStyle: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: activeColor.withOpacity(0.5)),
-              filled: true, fillColor: activeBg.withOpacity(0.3), contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
+              prefixText: '₹ ', prefixStyle: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: activeColor.withValues(alpha: 0.5)),
+              filled: true, fillColor: activeBg.withValues(alpha: 0.3), contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 20),
               border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: borderCol)),
               enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: const BorderSide(color: borderCol)),
               focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide(color: activeColor, width: 2)),
