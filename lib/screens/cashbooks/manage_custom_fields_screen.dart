@@ -54,7 +54,7 @@ class _ManageCustomFieldsScreenState extends State<ManageCustomFieldsScreen> {
             child: Column(
               mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Configure Field', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textDark)),
+                Text(existing == null ? 'Create Custom Field' : 'Edit Field', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textDark)),
                 const SizedBox(height: 24),
                 
                 const Text('FIELD NAME', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textMuted)),
