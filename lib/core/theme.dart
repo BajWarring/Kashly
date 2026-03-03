@@ -14,20 +14,6 @@ const Color success = Color(0xFF10B981);
 const Color successLight = Color(0xFFECFDF5);
 const Color borderCol = Color(0xFFE2E8F0);
 
-// --- CURRENCIES ---
-class Currency {
-  final String code, name, symbol;
-  Currency(this.code, this.name, this.symbol);
-}
-
-final List<Currency> worldCurrencies = [
-  Currency('INR', 'Indian Rupee', '₹'),
-  Currency('USD', 'US Dollar', '\$'),
-  Currency('EUR', 'Euro', '€'),
-  Currency('GBP', 'British Pound', '£'),
-  Currency('AED', 'UAE Dirham', 'د.إ'),
-];
-
 // --- ICONS ---
 final Map<String, IconData> availableIcons = {
   'wallet': Icons.account_balance_wallet,
@@ -37,4 +23,11 @@ final Map<String, IconData> availableIcons = {
   'cart': Icons.shopping_cart,
   'zap': Icons.flash_on,
   'home': Icons.home,
+  'car': Icons.directions_car,
+  'medical': Icons.medical_services,
+  'school': Icons.school,
+  'gym': Icons.fitness_center,
+  'pets': Icons.pets,
+  'restaurant': Icons.restaurant,
+  'gift': Icons.card_giftcard,
 };
