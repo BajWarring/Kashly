@@ -169,11 +169,20 @@ class _GenerateReportScreenState extends State<GenerateReportScreen> {
                 Row(children: [
                   Expanded(child: _buildFilterChip('DATE', _dateDisplay, Icons.calendar_today, () async {
                     final res = await FilterDialogs.showSelectionDialog(context, 'Date Range', ['All Time', 'Last Week', 'Last Month', 'Last Year', 'Custom Date...'], false);
+                    
+                    // FIXED: Context check after first await
+                    if (!context.mounted) return; 
+
                     if (res != null && res.isNotEmpty) {
                       if (res.first == 'Custom Date...') {
-                        final dr = await showDateRangePicker(context: context, firstDate: DateTime(2000), lastDate: DateTime(2100), builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: const ColorScheme.light(primary: accent)), child: child!));
+                        final dr = await showDateRangePicker(
+                          context: context, 
+                          firstDate: DateTime(2000), 
+                          lastDate: DateTime(2100), 
+                          builder: (context, child) => Theme(data: Theme.of(context).copyWith(colorScheme: const ColorScheme.light(primary: accent)), child: child!)
+                        );
                         
-                        // FIXED: Added mounted check here to satisfy linter
+                        // FIXED: Context check after second await
                         if (!context.mounted) return; 
 
                         if (dr != null) setState(() => _dateDisplay = '${DateFormat('MMM d').format(dr.start)} - ${DateFormat('MMM d').format(dr.end)}');
@@ -185,47 +194,54 @@ class _GenerateReportScreenState extends State<GenerateReportScreen> {
                   const SizedBox(width: 12),
                   Expanded(child: _buildFilterChip('TYPE', _typeDisplay, Icons.swap_vert, () async {
                     final res = await FilterDialogs.showSelectionDialog(context, 'Entry Type', ['All Entries', 'Cash In', 'Cash Out'], false);
+                    if (!context.mounted) return;
                     if (res != null && res.isNotEmpty) setState(() => _typeDisplay = res.first);
                   })),
                 ]),
                 const SizedBox(height: 12),
                 Row(children: [
-                  Expanded(child: _buildFilterChip('CATEGORY', _catDisplay, Icons.category, () {
-                    DatabaseHelper.instance.getAllOptions('Category').then((opts) {
-                      if (!context.mounted) return;
-                      FilterDialogs.showSelectionDialog(context, 'Categories', opts.map((e) => e.value).toList(), true).then((res) {
-                        if (res != null && res.isNotEmpty && mounted) setState(() => _catDisplay = '${res.length} Selected');
-                      });
-                    });
+                  Expanded(child: _buildFilterChip('CATEGORY', _catDisplay, Icons.category, () async {
+                    final opts = await DatabaseHelper.instance.getAllOptions('Category');
+                    if (!context.mounted) return;
+                    
+                    final res = await FilterDialogs.showSelectionDialog(context, 'Categories', opts.map((e) => e.value).toList(), true);
+                    if (!context.mounted) return;
+
+                    if (res != null && res.isNotEmpty) setState(() => _catDisplay = '${res.length} Selected');
                   })),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildFilterChip('PAYMENT', _payDisplay, Icons.account_balance_wallet, () {
-                    DatabaseHelper.instance.getAllOptions('Payment Method').then((opts) {
-                      if (!context.mounted) return;
-                      FilterDialogs.showSelectionDialog(context, 'Payment Method', opts.map((e) => e.value).toList(), true).then((res) {
-                        if (res != null && res.isNotEmpty && mounted) setState(() => _payDisplay = '${res.length} Selected');
-                      });
-                    });
+                  Expanded(child: _buildFilterChip('PAYMENT', _payDisplay, Icons.account_balance_wallet, () async {
+                    final opts = await DatabaseHelper.instance.getAllOptions('Payment Method');
+                    if (!context.mounted) return;
+                    
+                    final res = await FilterDialogs.showSelectionDialog(context, 'Payment Method', opts.map((e) => e.value).toList(), true);
+                    if (!context.mounted) return;
+
+                    if (res != null && res.isNotEmpty) setState(() => _payDisplay = '${res.length} Selected');
                   })),
                 ]),
                 const SizedBox(height: 12),
                 Row(children: [
                   Expanded(child: _buildFilterChip('SEARCH', _searchDisplay, Icons.search, () async {
                     final res = await FilterDialogs.showSearchInput(context);
+                    if (!context.mounted) return;
+
                     if (res != null) setState(() => _searchDisplay = res.isEmpty ? 'Any text...' : '"$res"');
                   })),
                   const SizedBox(width: 12),
-                  Expanded(child: _buildFilterChip('CUSTOM FIELD', _customFieldDisplay, Icons.dashboard_customize, () {
-                    DatabaseHelper.instance.getCustomFieldsForBook(widget.book.id).then((cFields) {
-                      if (!context.mounted) return;
-                      if (cFields.isEmpty) {
-                        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No custom fields found in this cashbook.')));
-                        return;
-                      }
-                      FilterDialogs.showSelectionDialog(context, 'Filter by Custom Field', cFields.map((e) => e.name).toList(), true).then((res) {
-                        if (res != null && res.isNotEmpty && mounted) setState(() => _customFieldDisplay = '${res.length} Selected');
-                      });
-                    });
+                  Expanded(child: _buildFilterChip('CUSTOM FIELD', _customFieldDisplay, Icons.dashboard_customize, () async {
+                    final cFields = await DatabaseHelper.instance.getCustomFieldsForBook(widget.book.id);
+                    if (!context.mounted) return;
+
+                    if (cFields.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('No custom fields found in this cashbook.')));
+                      return;
+                    }
+                    
+                    final res = await FilterDialogs.showSelectionDialog(context, 'Filter by Custom Field', cFields.map((e) => e.name).toList(), true);
+                    if (!context.mounted) return;
+
+                    if (res != null && res.isNotEmpty) setState(() => _customFieldDisplay = '${res.length} Selected');
                   })),
                 ]),
               ],
