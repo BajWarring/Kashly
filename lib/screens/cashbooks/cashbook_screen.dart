@@ -7,6 +7,7 @@ import '../../core/database_helper.dart';
 import '../../core/theme.dart';
 import 'add_entry_screen.dart';
 import 'entry_details_screen.dart';
+import 'generate_report_screen.dart';
 
 class CashbookScreen extends StatefulWidget {
   final Book book;
@@ -19,6 +20,11 @@ class CashbookScreen extends StatefulWidget {
 class _CashbookScreenState extends State<CashbookScreen> {
   bool _isSearchActive = false;
   String _searchQuery = '';
+  
+  // Filter States
+  String _filterType = 'All Entries';
+  List<String> _filterCategories = [];
+  List<String> _filterPayments = [];
   
   List<Entry> entries = [];
   Map<String, double> runningBalances = {};
@@ -37,13 +43,11 @@ class _CashbookScreenState extends State<CashbookScreen> {
     
     final data = await DatabaseHelper.instance.getEntriesForBook(widget.book.id);
     
-    // Calculate running balances and totals
     double running = 0;
     double tIn = 0;
     double tOut = 0;
     Map<String, double> bals = {};
     
-    // Process from oldest to newest to calculate running balance
     for (var e in data.reversed) {
       if (e.type == 'in') {
         running += e.amount;
@@ -70,32 +74,35 @@ class _CashbookScreenState extends State<CashbookScreen> {
     return amt < 0 ? '-₹$formatted' : '₹$formatted';
   }
 
-  void _openFilter(String type) {
-    // You can implement your FilterDialogs logic here based on the UI file
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Filter $type tapped')));
+  void _openFilter(String type) async {
+    if (type == 'type') {
+      final res = await FilterDialogs.showSelectionDialog(context, 'Entry Type', ['All Entries', 'Cash In', 'Cash Out'], false);
+      if (res != null && res.isNotEmpty) setState(() => _filterType = res.first);
+    } else if (type == 'category') {
+      final opts = await DatabaseHelper.instance.getAllOptions('Category');
+      if (!mounted) return;
+      final res = await FilterDialogs.showSelectionDialog(context, 'Categories', opts.map((e)=>e.value).toList(), true);
+      if (res != null) setState(() => _filterCategories = res);
+    } else if (type == 'payment') {
+      final opts = await DatabaseHelper.instance.getAllOptions('Payment Method');
+      if (!mounted) return;
+      final res = await FilterDialogs.showSelectionDialog(context, 'Payment Method', opts.map((e)=>e.value).toList(), true);
+      if (res != null) setState(() => _filterPayments = res);
+    }
   }
 
   PreferredSizeWidget _buildAppBar() {
     if (_isSearchActive) {
       return AppBar(
-        leading: IconButton(
-          icon: const Icon(Icons.close, color: textMuted),
-          onPressed: () => setState(() { _isSearchActive = false; _searchQuery = ''; }),
-        ),
-        title: TextField(
-          autofocus: true,
-          decoration: const InputDecoration(hintText: 'Search entries...', border: InputBorder.none, hintStyle: TextStyle(color: textLight)),
-          style: const TextStyle(fontSize: 18, color: textDark, fontWeight: FontWeight.w600),
-          onChanged: (val) => setState(() => _searchQuery = val),
-        ),
+        leading: IconButton(icon: const Icon(Icons.close, color: textMuted), onPressed: () => setState(() { _isSearchActive = false; _searchQuery = ''; })),
+        title: TextField(autofocus: true, decoration: const InputDecoration(hintText: 'Search entries...', border: InputBorder.none, hintStyle: TextStyle(color: textLight)), style: const TextStyle(fontSize: 18, color: textDark, fontWeight: FontWeight.w600), onChanged: (val) => setState(() => _searchQuery = val)),
         actions: [
           PopupMenuButton<String>(
-            icon: const Icon(Icons.filter_list, color: accent),
+            icon: Icon(Icons.filter_list, color: (_filterType != 'All Entries' || _filterCategories.isNotEmpty || _filterPayments.isNotEmpty) ? accent : textMuted),
             shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
             onSelected: _openFilter,
             itemBuilder: (context) => [
               const PopupMenuItem(enabled: false, child: Text('FILTER BY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: textLight))),
-              const PopupMenuItem(value: 'date', child: Text('Date Range', style: TextStyle(fontWeight: FontWeight.w600))),
               const PopupMenuItem(value: 'type', child: Text('Entry Type', style: TextStyle(fontWeight: FontWeight.w600))),
               const PopupMenuItem(value: 'category', child: Text('Categories', style: TextStyle(fontWeight: FontWeight.w600))),
               const PopupMenuItem(value: 'payment', child: Text('Payment Method', style: TextStyle(fontWeight: FontWeight.w600))),
@@ -109,42 +116,25 @@ class _CashbookScreenState extends State<CashbookScreen> {
       title: Text(widget.book.name),
       actions: [
         IconButton(icon: const Icon(Icons.search), onPressed: () => setState(() => _isSearchActive = true)),
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.cloud_upload_outlined),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          itemBuilder: (context) => [
-            const PopupMenuItem(enabled: false, child: Text('Will be added in future', style: TextStyle(fontStyle: FontStyle.italic))),
-          ],
-        ),
-        PopupMenuButton<String>(
-          icon: const Icon(Icons.more_vert),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          itemBuilder: (context) => [
-            const PopupMenuItem(value: 'details', child: Text('Book Details', style: TextStyle(fontWeight: FontWeight.w600))),
-            const PopupMenuItem(value: 'help', child: Text('Help & Support', style: TextStyle(fontWeight: FontWeight.w600))),
-          ],
-        ),
       ],
     );
   }
 
   void _openAddEntryScreen(String type) async {
-    await Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => AddEntryScreen(
-          book: widget.book,
-          initialType: type,
-        ),
-      ),
-    );
+    await Navigator.push(context, MaterialPageRoute(builder: (_) => AddEntryScreen(book: widget.book, initialType: type)));
     _loadEntries();
   }
 
   @override
   Widget build(BuildContext context) {
-    // Filter entries based on search
-    final displayEntries = entries.where((e) => e.note.toLowerCase().contains(_searchQuery.toLowerCase()) || e.category.toLowerCase().contains(_searchQuery.toLowerCase())).toList();
+    // ACTUAL FILTERING LOGIC
+    final displayEntries = entries.where((e) {
+      bool searchMatch = e.note.toLowerCase().contains(_searchQuery.toLowerCase()) || e.category.toLowerCase().contains(_searchQuery.toLowerCase());
+      bool typeMatch = _filterType == 'All Entries' || (_filterType == 'Cash In' && e.type == 'in') || (_filterType == 'Cash Out' && e.type == 'out');
+      bool catMatch = _filterCategories.isEmpty || _filterCategories.contains(e.category);
+      bool payMatch = _filterPayments.isEmpty || _filterPayments.contains(e.paymentMethod);
+      return searchMatch && typeMatch && catMatch && payMatch;
+    }).toList();
 
     return Scaffold(
       appBar: _buildAppBar(),
@@ -152,10 +142,8 @@ class _CashbookScreenState extends State<CashbookScreen> {
         ? const Center(child: CircularProgressIndicator(color: accent)) 
         : Column(
         children: [
-          // SUMMARY CARD
           Container(
-            margin: const EdgeInsets.all(16),
-            padding: const EdgeInsets.all(20),
+            margin: const EdgeInsets.all(16), padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(24), border: Border.all(color: borderCol)),
             child: Column(
               children: [
@@ -174,7 +162,7 @@ class _CashbookScreenState extends State<CashbookScreen> {
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
-                    onPressed: () {}, // Future: GenerateReportScreen
+                    onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => GenerateReportScreen(book: widget.book))),
                     icon: const Icon(Icons.picture_as_pdf, size: 18, color: Colors.white),
                     label: const Text('Generate Reports', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                     style: ElevatedButton.styleFrom(backgroundColor: accent, elevation: 0, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12))),
@@ -184,30 +172,25 @@ class _CashbookScreenState extends State<CashbookScreen> {
             ),
           ),
 
-          // ENTRIES HEADER
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Showing ${displayEntries.length} Entries', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted)),
-              ],
-            ),
+            child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [Text('Showing ${displayEntries.length} Entries', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted))]),
           ),
 
-          // ENTRIES LIST
           Expanded(
             child: ListView.builder(
               padding: const EdgeInsets.only(bottom: 100),
               itemCount: displayEntries.length,
               itemBuilder: (context, index) {
                 final entry = displayEntries[index];
-                final dateStr = DateFormat('dd MMM yyyy').format(DateTime.fromMillisecondsSinceEpoch(entry.timestamp));
-                final timeStr = DateFormat('hh:mm a').format(DateTime.fromMillisecondsSinceEpoch(entry.timestamp));
+                
+                // Formatted Dates: Feb 23, 2026 style
+                final dateStr = DateFormat('MMM d, yyyy').format(DateTime.fromMillisecondsSinceEpoch(entry.timestamp));
+                final timeStr = DateFormat('h:mm a').format(DateTime.fromMillisecondsSinceEpoch(entry.timestamp));
                 
                 bool showDateHeader = true;
                 if (index > 0) {
-                   final prevDate = DateFormat('dd MMM yyyy').format(DateTime.fromMillisecondsSinceEpoch(displayEntries[index - 1].timestamp));
+                   final prevDate = DateFormat('MMM d, yyyy').format(DateTime.fromMillisecondsSinceEpoch(displayEntries[index - 1].timestamp));
                    if (prevDate == dateStr) showDateHeader = false;
                 }
 
@@ -239,17 +222,18 @@ class _CashbookScreenState extends State<CashbookScreen> {
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(timeStr, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textMuted)),
-                                    const SizedBox(height: 4),
-                                    Text(entry.note.isNotEmpty ? entry.note : entry.category, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textDark)),
-                                    const SizedBox(height: 6),
+                                    // COMPACT: Tags front of time
                                     Row(
                                       children: [
                                         Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(6)), child: Text(entry.category, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: textMuted))),
                                         const SizedBox(width: 6),
                                         Container(padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2), decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(6)), child: Text(entry.paymentMethod, style: const TextStyle(fontSize: 10, fontWeight: FontWeight.w600, color: textMuted))),
+                                        const SizedBox(width: 8),
+                                        Text(timeStr, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textMuted)),
                                       ],
-                                    )
+                                    ),
+                                    const SizedBox(height: 6),
+                                    Text(entry.note.isNotEmpty ? entry.note : entry.category, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: textDark)),
                                   ],
                                 ),
                               ),
@@ -273,7 +257,6 @@ class _CashbookScreenState extends State<CashbookScreen> {
           )
         ],
       ),
-      // DUAL FABs
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
       floatingActionButton: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 16),
