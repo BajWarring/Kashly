@@ -7,6 +7,7 @@ import 'models/book.dart';
 import 'models/entry.dart';
 import 'models/edit_log.dart';
 import 'models/field_option.dart';
+import 'models/custom_field.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -86,6 +87,19 @@ class DatabaseHelper {
         lastUsed INTEGER NOT NULL
       )
     ''');
+
+    // 5. Custom Fields Table
+    await db.execute('''
+      CREATE TABLE custom_fields (
+        id TEXT PRIMARY KEY,
+        bookId TEXT NOT NULL,
+        name TEXT NOT NULL,
+        type TEXT NOT NULL,
+        options TEXT,
+        sortOrder INTEGER NOT NULL,
+        FOREIGN KEY (bookId) REFERENCES cashbooks (id) ON DELETE CASCADE
+      )
+    ''');
   }
 
   // ==========================================
@@ -120,18 +134,6 @@ class DatabaseHelper {
     final result = await db.query('entries', where: 'bookId = ?', whereArgs: [bookId], orderBy: 'timestamp DESC');
     return result.map((map) => Entry.fromMap(map)).toList();
   }
-  // Get recent unique remarks for a specific book to use as suggestions
-  Future<List<String>> getRecentRemarks(String bookId, {int limit = 5}) async {
-    final db = await instance.database;
-    final result = await db.rawQuery('''
-      SELECT DISTINCT note FROM entries 
-      WHERE bookId = ? AND note != '' 
-      ORDER BY timestamp DESC LIMIT ?
-    ''', [bookId, limit]);
-    
-    return result.map((row) => row['note'] as String).toList();
-  }
-
 
   Future<Entry?> getEntryById(String id) async {
     final db = await instance.database;
@@ -156,7 +158,7 @@ class DatabaseHelper {
   }
 
   // ==========================================
-  // EDIT LOGS
+  // EDIT LOGS & SUGGESTIONS
   // ==========================================
   Future<List<EditLog>> getLogsForEntry(String entryId) async {
     final db = await instance.database;
@@ -167,6 +169,17 @@ class DatabaseHelper {
   Future<void> insertEditLog(EditLog log) async {
     final db = await instance.database;
     await db.insert('edit_logs', log.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<List<String>> getRecentRemarks(String bookId, {int limit = 5}) async {
+    final db = await instance.database;
+    final result = await db.rawQuery('''
+      SELECT DISTINCT note FROM entries 
+      WHERE bookId = ? AND note != '' 
+      ORDER BY timestamp DESC LIMIT ?
+    ''', [bookId, limit]);
+    
+    return result.map((row) => row['note'] as String).toList();
   }
 
   // ==========================================
@@ -224,5 +237,49 @@ class DatabaseHelper {
       );
       await insertOption(newOpt);
     }
+  }
+
+  // ==========================================
+  // CUSTOM FIELDS
+  // ==========================================
+  Future<List<CustomField>> getCustomFieldsForBook(String bookId) async {
+    final db = await instance.database;
+    final result = await db.query(
+      'custom_fields', 
+      where: 'bookId = ?', 
+      whereArgs: [bookId], 
+      orderBy: 'sortOrder ASC'
+    );
+    return result.map((map) => CustomField.fromMap(map)).toList();
+  }
+
+  Future<void> insertCustomField(CustomField field) async {
+    final db = await instance.database;
+    await db.insert('custom_fields', field.toMap(), conflictAlgorithm: ConflictAlgorithm.replace);
+  }
+
+  Future<void> updateCustomField(CustomField field) async {
+    final db = await instance.database;
+    await db.update('custom_fields', field.toMap(), where: 'id = ?', whereArgs: [field.id]);
+  }
+
+  Future<void> deleteCustomField(String id) async {
+    final db = await instance.database;
+    await db.delete('custom_fields', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> updateCustomFieldOrders(List<CustomField> fields) async {
+    final db = await instance.database;
+    Batch batch = db.batch();
+    for (int i = 0; i < fields.length; i++) {
+      fields[i].sortOrder = i;
+      batch.update(
+        'custom_fields', 
+        fields[i].toMap(), 
+        where: 'id = ?', 
+        whereArgs: [fields[i].id]
+      );
+    }
+    await batch.commit(noResult: true);
   }
 }
