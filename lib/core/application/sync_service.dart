@@ -274,46 +274,64 @@ class SyncService extends ChangeNotifier {
   ///
   /// Flow: download → validate → safety snapshot → merge.
   Future<void> restoreFromDriveBackup(String fileName) async {
-    if (!isSignedIn) return;
-    status = SyncStatus.syncing;
-    notifyListeners();
+  if (!isSignedIn) return;
+  status = SyncStatus.syncing;
+  notifyListeners();
 
-    try {
-      final json = await DriveService.instance.downloadBackupByName(fileName);
-      if (json == null) {
-        throw Exception('Could not download "$fileName" from Drive.');
-      }
-
-      final data = BackupSerializer.decode(json);
-      if (data == null) {
-        throw Exception(
-            'Backup file "$fileName" could not be parsed — may be corrupted.');
-      }
-
-      final validation = BackupSerializer.validate(data);
-      if (!validation.isValid) {
-        throw Exception('Backup validation failed:\n${validation.message}');
-      }
-
-      await DatabaseHelper.instance.createSafetyBackup();
-
-      _isMerging = true;
-      try {
-        await DatabaseHelper.instance.mergeRemoteData(data);
-      } finally {
-        _isMerging = false;
-      }
-
-      status = SyncStatus.success;
-      debugPrint('[SyncService] Drive restore from "$fileName" completed.');
-    } catch (e) {
-      status = SyncStatus.error;
-      lastAuthError = e.toString();
-      debugPrint('[SyncService] Drive restore FAILED: $e');
-    } finally {
-      _syncLock = false;
-      _isMerging = false;
-      notifyListeners();
+  try {
+    // 1. Download the backup the user actually wants.
+    final json = await DriveService.instance.downloadBackupByName(fileName);
+    if (json == null) {
+      throw Exception('Could not download "$fileName" from Drive.');
     }
+
+    // 2. Decode + validate.
+    final data = BackupSerializer.decode(json);
+    if (data == null) {
+      throw Exception('Backup "$fileName" could not be parsed — may be corrupted.');
+    }
+    final validation = BackupSerializer.validate(data);
+    if (!validation.isValid) {
+      throw Exception('Backup validation failed:\n${validation.message}');
+    }
+
+    // 3. Safety snapshot of current local data before overwriting anything.
+    await DatabaseHelper.instance.createSafetyBackup();
+
+    // 4. Force-restore: stamps updatedAt = now on every record so the
+    //    restored data wins all future Last-Write-Wins merges.
+    _isMerging = true;
+    try {
+      await DatabaseHelper.instance.forceRestoreFromBackup(data);
+    } finally {
+      _isMerging = false;
+    }
+
+    // 5. Upload the restored state immediately as the new current backup.
+    //    Skipping the download step here is intentional — downloading
+    //    current_week_backup.json and merging it would undo the restore.
+    final rawData = await DatabaseHelper.instance.exportAllTables();
+    final uploadJson = BackupSerializer.encode(rawData);
+    await DriveService.instance.uploadWithWeeklyRotation(uploadJson);
+
+    // 6. Update sync timestamp.
+    lastSyncTime = DateTime.now().millisecondsSinceEpoch;
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setInt('lastSyncTime', lastSyncTime);
+
+    pendingChangesCount = 0;
+    await _refreshDriveInfo();
+
+    status = SyncStatus.success;
+    debugPrint('[SyncService] Drive restore from "$fileName" completed and uploaded.');
+  } catch (e) {
+    status = SyncStatus.error;
+    lastAuthError = e.toString();
+    debugPrint('[SyncService] Drive restore FAILED: $e');
+  } finally {
+    _syncLock = false;
+    _isMerging = false;
+    notifyListeners();
   }
+}
 }
