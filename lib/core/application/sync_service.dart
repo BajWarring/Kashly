@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/foundation.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../data/auth_service.dart';
@@ -44,7 +45,8 @@ class SyncService extends ChangeNotifier {
     _updateAuthState(null);
   }
 
-  void _updateAuthState(account) {
+  // FIXED: Added "GoogleSignInAccount?" type annotation here to satisfy the linter
+  void _updateAuthState(GoogleSignInAccount? account) {
     isSignedIn = account != null;
     userEmail = account?.email;
     notifyListeners();
