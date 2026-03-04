@@ -1,0 +1,73 @@
+name: 🔑 Generate Keystore (Run Once)
+
+on:
+  workflow_dispatch:
+    inputs:
+      key_password:
+        description: 'Password for the key (save this!)'
+        required: true
+        default: 'kashly_secure_123'
+      store_password:
+        description: 'Password for the keystore (save this!)'
+        required: true
+        default: 'kashly_store_123'
+      owner_name:
+        description: 'Your name (for the certificate)'
+        required: true
+        default: 'Jaspreet Singh'
+
+jobs:
+  generate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Keystore
+        run: |
+          keytool -genkey -v \
+            -keystore kashly_release.jks \
+            -alias kashly \
+            -keyalg RSA \
+            -keysize 2048 \
+            -validity 36500 \
+            -storepass "${{ github.event.inputs.store_password }}" \
+            -keypass "${{ github.event.inputs.key_password }}" \
+            -dname "CN=${{ github.event.inputs.owner_name }}, OU=Kashly, O=Kashly, L=India, ST=India, C=IN"
+
+      - name: Print SHA-1 Fingerprint
+        run: |
+          echo "========================================"
+          echo "   COPY THIS SHA-1 INTO FIREBASE"
+          echo "========================================"
+          keytool -list -v \
+            -keystore kashly_release.jks \
+            -alias kashly \
+            -storepass "${{ github.event.inputs.store_password }}" \
+            | grep "SHA1:"
+          echo "========================================"
+
+      - name: Print SHA-256 Fingerprint (also useful)
+        run: |
+          keytool -list -v \
+            -keystore kashly_release.jks \
+            -alias kashly \
+            -storepass "${{ github.event.inputs.store_password }}" \
+            | grep "SHA256:"
+
+      - name: Encode Keystore to Base64
+        run: |
+          echo "========================================"
+          echo "  COPY THIS INTO GITHUB SECRET:"
+          echo "  Secret name: KEYSTORE_BASE64"
+          echo "========================================"
+          base64 -w 0 kashly_release.jks
+          echo ""
+          echo "========================================"
+
+      - name: Remind you to save secrets
+        run: |
+          echo ""
+          echo "== GITHUB SECRETS TO CREATE ==========="
+          echo "KEYSTORE_BASE64  -> the long base64 string above"
+          echo "KEY_ALIAS        -> kashly"
+          echo "KEY_PASSWORD     -> ${{ github.event.inputs.key_password }}"
+          echo "STORE_PASSWORD   -> ${{ github.event.inputs.store_password }}"
+          echo "========================================"
