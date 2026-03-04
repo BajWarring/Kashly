@@ -2,6 +2,11 @@ name: 2. Build APK
 
 on:
   workflow_dispatch:
+    inputs:
+      version_name:
+        description: 'Version name (e.g. 1.0.2)'
+        required: false
+        default: ''
 
 jobs:
   build:
@@ -22,6 +27,7 @@ jobs:
         uses: subosito/flutter-action@v2
         with:
           flutter-version: '3.38.0'
+          cache: true
 
       - name: Decode Keystore
         run: |
@@ -29,10 +35,25 @@ jobs:
 
       - name: Create key.properties
         run: |
-          echo "storePassword=${{ secrets.KEYSTORE_PASSWORD }}" > android/key.properties
-          echo "keyPassword=${{ secrets.KEYSTORE_PASSWORD }}" >> android/key.properties
-          echo "keyAlias=${{ secrets.KEYSTORE_ALIAS }}" >> android/key.properties
+          echo "storePassword=${{ secrets.STORE_PASSWORD }}" > android/key.properties
+          echo "keyPassword=${{ secrets.KEY_PASSWORD }}" >> android/key.properties
+          echo "keyAlias=${{ secrets.KEY_ALIAS }}" >> android/key.properties
           echo "storeFile=kashly-release.keystore" >> android/key.properties
+
+      # -----------------------------
+      # Resolve version for artifact name
+      # -----------------------------
+      - name: Resolve Version
+        id: version
+        run: |
+          INPUT_VERSION="${{ github.event.inputs.version_name }}"
+          if [ -n "$INPUT_VERSION" ]; then
+            echo "tag=v$INPUT_VERSION" >> $GITHUB_OUTPUT
+          else
+            PUBSPEC_VERSION=$(grep '^version:' pubspec.yaml | sed 's/version: //' | sed 's/+.*//' | xargs)
+            echo "tag=v$PUBSPEC_VERSION" >> $GITHUB_OUTPUT
+          fi
+          echo "build_time=$(date +'%Y-%m-%d_%H-%M')" >> $GITHUB_OUTPUT
 
       # -----------------------------
       # Pub Get
@@ -88,22 +109,22 @@ jobs:
           echo '```' >> $GITHUB_STEP_SUMMARY
 
       # -----------------------------
-      # SHA only if build succeeded
+      # SHA fingerprints
       # -----------------------------
       - name: Extract SHA fingerprints
         if: success()
         run: |
           keytool -list -v \
             -keystore android/app/kashly-release.keystore \
-            -alias "${{ secrets.KEYSTORE_ALIAS }}" \
-            -storepass "${{ secrets.KEYSTORE_PASSWORD }}" > fingerprint.txt
+            -alias "${{ secrets.KEY_ALIAS }}" \
+            -storepass "${{ secrets.STORE_PASSWORD }}" > fingerprint.txt
 
           SHA1=$(grep "SHA1:" fingerprint.txt | head -n1 | sed 's/.*SHA1: //')
           SHA256=$(grep "SHA256:" fingerprint.txt | head -n1 | sed 's/.*SHA256: //')
 
           echo "## 🔐 Signing Certificate Fingerprints" >> $GITHUB_STEP_SUMMARY
 
-          echo "### SHA-1" >> $GITHUB_STEP_SUMMARY
+          echo "### SHA-1 (add this to Firebase)" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
           echo "$SHA1" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
@@ -113,9 +134,28 @@ jobs:
           echo "$SHA256" >> $GITHUB_STEP_SUMMARY
           echo '```' >> $GITHUB_STEP_SUMMARY
 
+      # -----------------------------
+      # Upload APK
+      # -----------------------------
       - name: Upload APK
         if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: Kashly_V_
+          name: Kashly_${{ steps.version.outputs.tag }}_${{ steps.version.outputs.build_time }}
           path: build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 30
+
+      # -----------------------------
+      # Final build summary
+      # -----------------------------
+      - name: Build Success Summary
+        if: success()
+        run: |
+          echo "## ✅ Build Successful" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|---|---|" >> $GITHUB_STEP_SUMMARY
+          echo "| Version | ${{ steps.version.outputs.tag }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Built at | ${{ steps.version.outputs.build_time }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Artifact | \`Kashly_${{ steps.version.outputs.tag }}_${{ steps.version.outputs.build_time }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Download the APK from the **Artifacts** section above ☝️" >> $GITHUB_STEP_SUMMARY
