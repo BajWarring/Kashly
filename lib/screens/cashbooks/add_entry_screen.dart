@@ -8,7 +8,7 @@ import '../../core/models/field_option.dart';
 import '../../core/models/custom_field.dart';
 import '../../core/models/currency.dart';
 import '../../core/models/edit_log.dart';
-import '../../core/database_helper.dart';
+import '../../core/data/database_helper.dart';
 import '../../core/theme.dart';
 import 'manage_options_screen.dart';
 import 'manage_custom_fields_screen.dart';
