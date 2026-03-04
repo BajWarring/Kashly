@@ -21,64 +21,70 @@ class SyncService extends ChangeNotifier {
   String? userEmail;
   String? userPhotoUrl;
   int lastSyncTime = 0;
-  String? _remoteFileId;
-
-  // NEW: exposes the last auth error to the UI
   String? lastAuthError;
+
+  // Drive storage info for UI
+  String driveStorageUsed = '—';
+  String driveStorageTotal = '—';
+  double driveStorageFraction = 0.0;
+  List<Map<String, String>> driveBackupFiles = [];
+
+  // Pending unsynced changes count
+  int pendingChangesCount = 0;
+
+  // Lock to prevent overlapping syncs
+  bool _syncLock = false;
 
   void clearError() {
     lastAuthError = null;
     notifyListeners();
   }
 
-  Timer? _debounceTimer;
-
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
     lastSyncTime = prefs.getInt('lastSyncTime') ?? 0;
-    _remoteFileId = prefs.getString('driveFileId');
 
     try {
       final account = await AuthService.instance.signInSilently();
       _updateAuthState(account);
       if (account != null) {
-        debugPrint('[SyncService] Silent sign-in success: ${account.email}');
-      } else {
-        debugPrint('[SyncService] Silent sign-in returned null (no previous session).');
+        debugPrint('[SyncService] Silent sign-in: ${account.email}');
+        await _refreshDriveInfo();
       }
     } catch (e) {
-      // No longer silently swallowed — now visible in logs and lastAuthError
       lastAuthError = e.toString();
       debugPrint('[SyncService] Silent sign-in FAILED: $e');
       notifyListeners();
     }
+    await _updatePendingCount();
   }
 
   Future<void> signIn() async {
     lastAuthError = null;
     try {
-      debugPrint('[SyncService] Starting Google sign-in...');
       final account = await AuthService.instance.signIn();
       if (account != null) {
-        debugPrint('[SyncService] Sign-in success: ${account.email}');
         _updateAuthState(account);
         await performTwoWaySync();
       } else {
-        // User dismissed the picker — not an error, but should be visible
-        debugPrint('[SyncService] Sign-in cancelled by user.');
         throw Exception('Sign-in was cancelled. Please try again.');
       }
     } catch (e) {
       lastAuthError = e.toString();
       debugPrint('[SyncService] Sign-in ERROR: $e');
       notifyListeners();
-      rethrow; // Always re-throw so callers can show UI feedback
+      rethrow;
     }
   }
 
   Future<void> signOut() async {
     await AuthService.instance.signOut();
     lastAuthError = null;
+    driveStorageUsed = '—';
+    driveStorageTotal = '—';
+    driveStorageFraction = 0.0;
+    driveBackupFiles = [];
+    pendingChangesCount = 0;
     _updateAuthState(null);
   }
 
@@ -89,47 +95,61 @@ class SyncService extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Called immediately after any DB write — no debounce delay
   void triggerAutoSync() {
+    _updatePendingCount();
     if (!isSignedIn) return;
+    performTwoWaySync();
+  }
 
-    if (_debounceTimer?.isActive ?? false) _debounceTimer!.cancel();
-    _debounceTimer = Timer(const Duration(seconds: 20), () {
-      performTwoWaySync();
-    });
+  Future<void> _updatePendingCount() async {
+    pendingChangesCount =
+        await DatabaseHelper.instance.getPendingChangesCount(lastSyncTime);
+    notifyListeners();
+  }
+
+  Future<void> _refreshDriveInfo() async {
+    if (!isSignedIn) return;
+    try {
+      final info = await DriveService.instance.getDriveStorageInfo();
+      driveStorageUsed = info['used'] ?? '—';
+      driveStorageTotal = info['total'] ?? '—';
+      driveStorageFraction = (info['fraction'] as double?) ?? 0.0;
+      driveBackupFiles = await DriveService.instance.listBackupFiles();
+      notifyListeners();
+    } catch (e) {
+      debugPrint('[SyncService] Drive info refresh failed: $e');
+    }
   }
 
   Future<void> performTwoWaySync() async {
-    if (isSyncing || !isSignedIn) return;
+    if (_syncLock || !isSignedIn) return;
+    _syncLock = true;
 
     status = SyncStatus.syncing;
     notifyListeners();
 
     try {
-      if (_remoteFileId == null) {
-        _remoteFileId = await DriveService.instance.getRemoteFileId();
-        final prefs = await SharedPreferences.getInstance();
-        if (_remoteFileId != null) {
-          await prefs.setString('driveFileId', _remoteFileId!);
+      // Pull latest remote and merge into local (smart merge, no wipe)
+      final remoteJson = await DriveService.instance.downloadCurrentBackup();
+      if (remoteJson != null) {
+        final remoteData = BackupSerializer.decode(remoteJson);
+        if (remoteData != null) {
+          await DatabaseHelper.instance.mergeRemoteData(remoteData);
         }
       }
 
-      if (_remoteFileId != null) {
-        final remoteJson = await DriveService.instance.downloadFile(_remoteFileId!);
-        if (remoteJson != null) {
-          final remoteData = BackupSerializer.decode(remoteJson);
-          if (remoteData != null) {
-            await DatabaseHelper.instance.mergeRemoteData(remoteData);
-          }
-        }
-      }
-
+      // Push local data with weekly rotation
       final rawData = await DatabaseHelper.instance.exportAllTables();
       final finalJson = BackupSerializer.encode(rawData);
-      await DriveService.instance.uploadFile(finalJson, existingFileId: _remoteFileId);
+      await DriveService.instance.uploadWithWeeklyRotation(finalJson);
 
       lastSyncTime = DateTime.now().millisecondsSinceEpoch;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('lastSyncTime', lastSyncTime);
+
+      pendingChangesCount = 0;
+      await _refreshDriveInfo();
 
       status = SyncStatus.success;
       debugPrint('[SyncService] Two-way sync completed successfully.');
@@ -137,12 +157,40 @@ class SyncService extends ChangeNotifier {
       status = SyncStatus.error;
       lastAuthError = e.toString();
       debugPrint('[SyncService] Sync FAILED: $e');
+      await _updatePendingCount();
     } finally {
+      _syncLock = false;
       notifyListeners();
       Future.delayed(const Duration(seconds: 3), () {
-        status = SyncStatus.idle;
-        notifyListeners();
+        if (status != SyncStatus.syncing) {
+          status = SyncStatus.idle;
+          notifyListeners();
+        }
       });
+    }
+  }
+
+  // Restore from a named Drive backup — uses smart merge (no wipe)
+  Future<void> restoreFromDriveBackup(String fileName) async {
+    if (!isSignedIn) return;
+    status = SyncStatus.syncing;
+    notifyListeners();
+    try {
+      final json = await DriveService.instance.downloadBackupByName(fileName);
+      if (json != null) {
+        final data = BackupSerializer.decode(json);
+        if (data != null) {
+          // Smart merge: only restores records older locally, never deletes new local data
+          await DatabaseHelper.instance.mergeRemoteData(data);
+        }
+      }
+      status = SyncStatus.success;
+    } catch (e) {
+      status = SyncStatus.error;
+      lastAuthError = e.toString();
+    } finally {
+      _syncLock = false;
+      notifyListeners();
     }
   }
 }
