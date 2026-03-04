@@ -27,7 +27,8 @@ void main() async {
   //
   // isInDebugMode: set to true during development to see verbose WorkManager
   // logs in Android Studio. Switch to false before releasing.
-  
+
+  await Workmanager().initialize(callbackDispatcher);
 
   runApp(const KashlyApp());
 }
