@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme.dart';
-import '../../../../core/sync/sync_service.dart';
+import '../../../../core/application/sync_service.dart';
 
 class GoogleDriveScreen extends StatefulWidget {
   const GoogleDriveScreen({super.key});
@@ -14,16 +14,16 @@ class _GoogleDriveScreenState extends State<GoogleDriveScreen> {
   @override
   void initState() {
     super.initState();
-    SyncService.instance.addListener(_onSyncChanged);
+    SyncService.instance.addListener(_onSyncUpdate);
   }
 
   @override
   void dispose() {
-    SyncService.instance.removeListener(_onSyncChanged);
+    SyncService.instance.removeListener(_onSyncUpdate);
     super.dispose();
   }
 
-  void _onSyncChanged() {
+  void _onSyncUpdate() {
     if (mounted) setState(() {});
   }
 
@@ -35,31 +35,33 @@ class _GoogleDriveScreenState extends State<GoogleDriveScreen> {
   @override
   Widget build(BuildContext context) {
     final syncServ = SyncService.instance;
-    final bool hasPending = syncServ.pendingChanges > 0;
+    final isError = syncServ.status == SyncStatus.error;
+    final isSuccess = syncServ.status == SyncStatus.success;
     
+    Color boxColor = isError ? dangerLight : (isSuccess ? successLight : appBg);
+    Color borderColor = isError ? danger : (isSuccess ? success : borderCol);
+    IconData statusIcon = isError ? Icons.error_outline : (isSuccess ? Icons.cloud_done : Icons.cloud_sync);
+
     return ListView(
-      padding: const EdgeInsets.only(top: 20, left: 20, right: 20, bottom: 60),
+      padding: const EdgeInsets.all(20),
       children: [
-        
+        // --- STATUS DASHBOARD ---
         AnimatedContainer(
-          duration: const Duration(milliseconds: 400),
+          duration: const Duration(milliseconds: 300),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
-            color: hasPending ? warningLight : success.withValues(alpha: 0.1),
+            color: boxColor,
             borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: hasPending ? warning.withValues(alpha: 0.3) : success.withValues(alpha: 0.3)),
+            border: Border.all(color: borderColor),
           ),
           child: Row(
             children: [
               Container(
                 padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: hasPending ? warning.withValues(alpha: 0.2) : success.withValues(alpha: 0.2),
-                  shape: BoxShape.circle,
-                ),
+                decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
                 child: syncServ.isSyncing 
-                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3))
-                  : Icon(hasPending ? Icons.cloud_sync : Icons.cloud_done, color: hasPending ? warning : success, size: 28),
+                  ? const SizedBox(width: 24, height: 24, child: CircularProgressIndicator(strokeWidth: 3, color: accent))
+                  : Icon(statusIcon, color: borderColor, size: 28),
               ),
               const SizedBox(width: 16),
               Expanded(
@@ -67,32 +69,32 @@ class _GoogleDriveScreenState extends State<GoogleDriveScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      hasPending ? 'Unsaved Changes' : 'Everything is Up to Date',
-                      style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: hasPending ? const Color(0xFF92400E) : const Color(0xFF065F46)),
+                      syncServ.isSyncing ? 'Syncing securely...' : (isError ? 'Sync Failed' : 'Two-Way Sync Active'),
+                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: textDark),
                     ),
                     const SizedBox(height: 4),
                     Text(
-                      hasPending ? '${syncServ.pendingChanges} edits waiting to be synced.' : 'Your data is securely backed up to the cloud.',
-                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: hasPending ? const Color(0xFFB45309) : const Color(0xFF047857)),
+                      'Last synced: ${_formatDate(syncServ.lastSyncTime)}',
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: textMuted),
                     ),
                   ],
                 ),
               ),
-              if (hasPending && syncServ.isSignedIn)
+              if (syncServ.isSignedIn)
                 ElevatedButton(
-                  onPressed: syncServ.isSyncing ? null : () => syncServ.performSync(),
+                  onPressed: syncServ.isSyncing ? null : () => syncServ.performTwoWaySync(),
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: warning, elevation: 0,
+                    backgroundColor: textDark, elevation: 0,
                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
                   ),
-                  child: const Text('Sync', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                  child: const Text('Force Sync', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
                 )
             ],
           ),
         ),
         const SizedBox(height: 24),
 
+        // --- ACCOUNT CONTROL ---
         if (!syncServ.isSignedIn)
           Container(
             padding: const EdgeInsets.all(24),
@@ -104,7 +106,7 @@ class _GoogleDriveScreenState extends State<GoogleDriveScreen> {
                 const SizedBox(height: 16),
                 const Text('Connect Cloud Storage', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: textDark)),
                 const SizedBox(height: 8),
-                const Text('Securely sync your cashbooks across devices automatically via Google Drive.', textAlign: TextAlign.center, style: TextStyle(color: textMuted, fontSize: 13, height: 1.5)),
+                const Text('Enable seamless, conflict-free sync across all your devices using your personal Google Drive.', textAlign: TextAlign.center, style: TextStyle(color: textMuted, fontSize: 13, height: 1.5)),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
@@ -143,8 +145,6 @@ class _GoogleDriveScreenState extends State<GoogleDriveScreen> {
                     )
                   ],
                 ),
-                const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Divider(height: 1, color: borderCol)),
-                Text('Last Synced: ${_formatDate(syncServ.lastSyncTime)}', style: const TextStyle(color: textMuted, fontSize: 13, fontWeight: FontWeight.w600)),
               ],
             ),
           ),
