@@ -13,10 +13,6 @@ import '../data/drive_service.dart';
 void callbackDispatcher() {
   Workmanager().executeTask((taskName, inputData) async {
     WidgetsFlutterBinding.ensureInitialized();
-    // This is the critical missing line — registers sqflite,
-    // shared_preferences, etc. inside the background isolate.
-    DartPluginRegistrant.ensureInitialized();
-
     try {
       return await BackgroundSyncExecutor.execute();
     } catch (e) {
