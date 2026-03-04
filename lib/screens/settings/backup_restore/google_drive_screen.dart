@@ -13,7 +13,6 @@ class GoogleDriveScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // ListenableBuilder replaces the need for stateful addListener logic
     return ListenableBuilder(
       listenable: SyncService.instance,
       builder: (context, _) {
@@ -28,7 +27,6 @@ class GoogleDriveScreen extends StatelessWidget {
         return ListView(
           padding: const EdgeInsets.all(20),
           children: [
-            // --- STATUS DASHBOARD ---
             AnimatedContainer(
               duration: const Duration(milliseconds: 300),
               padding: const EdgeInsets.all(20),
@@ -77,7 +75,6 @@ class GoogleDriveScreen extends StatelessWidget {
             ),
             const SizedBox(height: 24),
 
-            // --- ACCOUNT CONTROL ---
             if (!syncServ.isSignedIn)
               Container(
                 padding: const EdgeInsets.all(24),
@@ -94,7 +91,19 @@ class GoogleDriveScreen extends StatelessWidget {
                     SizedBox(
                       width: double.infinity,
                       child: ElevatedButton.icon(
-                        onPressed: () => syncServ.signIn(),
+                        // FIXED: Added try-catch to surface the exact Firebase/Google Error
+                        onPressed: () async {
+                          try {
+                            await syncServ.signIn();
+                          } catch (e) {
+                            if (!context.mounted) return;
+                            ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                              content: Text('Login Failed (Check Firebase/SHA-1):\n$e', style: const TextStyle(fontWeight: FontWeight.bold)),
+                              backgroundColor: danger,
+                              duration: const Duration(seconds: 5),
+                            ));
+                          }
+                        },
                         icon: const Icon(Icons.g_mobiledata, color: Colors.white, size: 28),
                         label: const Text('Sign in with Google', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 15)),
                         style: ElevatedButton.styleFrom(backgroundColor: accent, padding: const EdgeInsets.symmetric(vertical: 14), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), elevation: 0),
@@ -135,16 +144,6 @@ class GoogleDriveScreen extends StatelessWidget {
                         )
                       ],
                     ),
-                    const Padding(padding: EdgeInsets.symmetric(vertical: 16), child: Divider(height: 1, color: borderCol)),
-                    const Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Text('Storage Used:', style: TextStyle(color: textMuted, fontSize: 13, fontWeight: FontWeight.w600)),
-                        Text('45.2 MB / 15 GB', style: TextStyle(color: textDark, fontSize: 13, fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    LinearProgressIndicator(value: 0.05, backgroundColor: appBg, valueColor: const AlwaysStoppedAnimation<Color>(accent), borderRadius: BorderRadius.circular(4), minHeight: 6),
                   ],
                 ),
               ),
