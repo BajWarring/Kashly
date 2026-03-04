@@ -36,7 +36,7 @@ class SyncScheduler {
       frequency: const Duration(minutes: 15),
       constraints: Constraints(networkType: NetworkType.connected),
       // Don't reset an already-scheduled periodic task on every app launch.
-      existingWorkPolicy: ExistingWorkPolicy.keep,
+      existingWorkPolicy: ExistingPeriodicWorkPolicy.keep,
       backoffPolicy: BackoffPolicy.exponential,
       backoffPolicyDelay: const Duration(minutes: 2),
     );
