@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 
 import '../../core/models/book.dart';
-import '../../core/database_helper.dart';
+import '../../core/data/database_helper.dart';
 import '../../core/theme.dart';
 
 class BookDetailsScreen extends StatefulWidget {
