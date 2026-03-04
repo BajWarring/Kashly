@@ -6,6 +6,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../data/auth_service.dart';
 import '../data/drive_service.dart';
 import '../data/database_helper.dart';
+import '../services/sync_scheduler.dart';
+import '../services/sync_work_manager_service.dart';
 import 'backup_serializer.dart';
 
 enum SyncStatus { idle, syncing, success, error }
@@ -34,15 +36,16 @@ class SyncService extends ChangeNotifier {
 
   // ── Internal guards ────────────────────────────────────────────────────────
 
-  /// Hard lock: prevents two sync operations running at the same time.
+  /// Hard lock: prevents two foreground sync operations running in parallel.
   bool _syncLock = false;
 
-  /// Set to true while applying a remote merge so that DB writes made during
-  /// the merge do NOT re-trigger another sync (avoids infinite loop).
+  /// True while applying a remote merge so that DB writes made during the
+  /// merge do NOT re-trigger another sync (prevents infinite loops).
   bool _isMerging = false;
 
-  /// Debounce timer: sync is only dispatched 30 seconds after the LAST local
-  /// write, not on every individual write (avoids API spam).
+  /// Debounce timer: foreground sync fires 30 s after the LAST local write
+  /// rather than on every individual write (avoids redundant API calls while
+  /// the user is actively entering data).
   Timer? _debounceTimer;
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -52,15 +55,27 @@ class SyncService extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Called once at app launch (e.g. from [BackupManagerScreen.initState]).
   Future<void> initialize() async {
     final prefs = await SharedPreferences.getInstance();
     lastSyncTime = prefs.getInt('lastSyncTime') ?? 0;
+
+    // Surface any error persisted by a WorkManager background task so the
+    // UI can inform the user on the next app open.
+    final bgError = await BackgroundSyncExecutor.consumePersistedError();
+    if (bgError != null) {
+      lastAuthError = 'Background sync error: $bgError';
+    }
 
     try {
       final account = await AuthService.instance.signInSilently();
       _updateAuthState(account);
       if (account != null) {
         debugPrint('[SyncService] Silent sign-in: ${account.email}');
+        // Re-register the periodic task on every launch so it survives
+        // device reboots and task cancellations (ExistingWorkPolicy.keep
+        // makes this a no-op if already scheduled).
+        await SyncScheduler.schedulePeriodic();
         await _refreshDriveInfo();
       }
     } catch (e) {
@@ -68,6 +83,7 @@ class SyncService extends ChangeNotifier {
       debugPrint('[SyncService] Silent sign-in FAILED: $e');
       notifyListeners();
     }
+
     await _updatePendingCount();
   }
 
@@ -77,6 +93,8 @@ class SyncService extends ChangeNotifier {
       final account = await AuthService.instance.signIn();
       if (account != null) {
         _updateAuthState(account);
+        // Activate background sync as soon as the user signs in.
+        await SyncScheduler.schedulePeriodic();
         await performTwoWaySync();
       } else {
         throw Exception('Sign-in was cancelled. Please try again.');
@@ -91,6 +109,8 @@ class SyncService extends ChangeNotifier {
 
   Future<void> signOut() async {
     _debounceTimer?.cancel();
+    // Stop all background tasks — they would fail without valid credentials.
+    await SyncScheduler.cancelAll();
     await AuthService.instance.signOut();
     lastAuthError = null;
     driveStorageUsed = '—';
@@ -108,36 +128,46 @@ class SyncService extends ChangeNotifier {
     notifyListeners();
   }
 
-  // ── Debounced auto-sync ────────────────────────────────────────────────────
+  // ── Auto-sync: debounced foreground + immediate background ─────────────────
+  //
+  // Called immediately after every DB write. Two things happen:
+  //
+  //   1. A WorkManager one-time task is registered right now.
+  //      If the user closes the app before the 30 s timer fires, WorkManager
+  //      will still run the sync in the background (even after a reboot).
+  //
+  //   2. A 30 s debounce timer resets on each call. A burst of writes
+  //      (e.g. bulk entry creation) produces only ONE foreground sync
+  //      rather than one per write.
+  //
+  // When the foreground sync succeeds it cancels the WorkManager one-time
+  // task so the background job doesn't duplicate the upload.
+  //
+  // [_isMerging] prevents DB writes caused by applying a remote merge from
+  // triggering a new sync — breaking the infinite loop.
 
-  /// Called immediately after any DB write.
-  ///
-  /// • Updates the pending-changes badge right away (no delay).
-  /// • Schedules a sync 30 seconds after the LAST local change so that rapid
-  ///   edits (e.g. bulk entry creation) produce only ONE sync call instead of
-  ///   one per write, preventing Drive API spam and race conditions.
-  /// • Does nothing when [_isMerging] is true to prevent sync loops caused by
-  ///   the writes that happen while applying a remote merge.
   void triggerAutoSync() {
-    // Never count merge writes as "pending local changes".
     if (_isMerging) return;
 
     _updatePendingCount();
     if (!isSignedIn) return;
 
-    // Cancel any previously scheduled debounced sync and restart the timer.
+    // ── Immediate WorkManager safety net ─────────────────────────────────────
+    SyncScheduler.scheduleOneTime();
+
+    // ── 30-second foreground debounce ────────────────────────────────────────
     _debounceTimer?.cancel();
     _debounceTimer = Timer(
       const Duration(seconds: 30),
       () {
-        debugPrint('[SyncService] Debounce elapsed — triggering auto-sync.');
+        debugPrint('[SyncService] Debounce elapsed — triggering foreground sync.');
         performTwoWaySync();
       },
     );
-    debugPrint('[SyncService] Auto-sync debounced (30 s).');
+    debugPrint('[SyncService] Auto-sync: BG task queued; debounce reset (30 s).');
   }
 
-  // ── Core sync ──────────────────────────────────────────────────────────────
+  // ── Core two-way sync ──────────────────────────────────────────────────────
 
   Future<void> _updatePendingCount() async {
     pendingChangesCount =
@@ -159,21 +189,20 @@ class SyncService extends ChangeNotifier {
     }
   }
 
-  /// Two-way sync: pull remote → smart-merge → push updated local copy.
+  /// Foreground two-way sync: pull remote → validate → merge → push.
   ///
-  /// Guards:
-  ///   • [_syncLock] prevents overlapping sync calls.
-  ///   • [_isMerging] silences DB-write triggers while applying remote data.
+  /// On success, cancels the pending WorkManager one-time task to prevent a
+  /// redundant background upload moments later.
   Future<void> performTwoWaySync() async {
     if (_syncLock || !isSignedIn) return;
     _syncLock = true;
-    _debounceTimer?.cancel(); // No need for the debounce timer any more.
+    _debounceTimer?.cancel();
 
     status = SyncStatus.syncing;
     notifyListeners();
 
     try {
-      // 1. Download the current remote backup.
+      // 1. Download.
       final remoteJson = await DriveService.instance.downloadCurrentBackup();
 
       if (remoteJson != null) {
@@ -181,19 +210,19 @@ class SyncService extends ChangeNotifier {
         final remoteData = BackupSerializer.decode(remoteJson);
 
         if (remoteData == null) {
-          debugPrint('[SyncService] Remote backup could not be decoded — skipping merge.');
+          debugPrint('[SyncService] Remote backup unparseable — skipping merge.');
         } else {
-          // 3. Validate before touching local data.
+          // 3. Validate.
           final validation = BackupSerializer.validate(remoteData);
           if (!validation.isValid) {
-            debugPrint('[SyncService] Remote backup failed validation: ${validation.message}');
-            // Don't throw — just skip the merge and upload our local copy.
+            debugPrint('[SyncService] Remote backup invalid: ${validation.message}');
+            // Skip merge but still push local data below.
           } else {
-            // 4. Merge-safe: suppress re-trigger during merge writes.
+            // 4. Merge — silence re-triggers during merge writes.
             _isMerging = true;
             try {
               await DatabaseHelper.instance.mergeRemoteData(remoteData);
-              debugPrint('[SyncService] Remote merge applied successfully.');
+              debugPrint('[SyncService] Remote merge applied.');
             } finally {
               _isMerging = false;
             }
@@ -201,7 +230,7 @@ class SyncService extends ChangeNotifier {
         }
       }
 
-      // 5. Push local data with weekly rotation.
+      // 5. Push updated local snapshot.
       final rawData = await DatabaseHelper.instance.exportAllTables();
       final finalJson = BackupSerializer.encode(rawData);
       await DriveService.instance.uploadWithWeeklyRotation(finalJson);
@@ -211,22 +240,25 @@ class SyncService extends ChangeNotifier {
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('lastSyncTime', lastSyncTime);
 
+      // 7. Cancel the background one-time task — foreground beat it to it.
+      await SyncScheduler.cancelOneTime();
+
       pendingChangesCount = 0;
       await _refreshDriveInfo();
 
       status = SyncStatus.success;
-      debugPrint('[SyncService] Two-way sync completed successfully.');
+      debugPrint('[SyncService] Foreground sync completed successfully.');
     } catch (e) {
       status = SyncStatus.error;
       lastAuthError = e.toString();
-      debugPrint('[SyncService] Sync FAILED: $e');
+      debugPrint('[SyncService] Foreground sync FAILED: $e');
       await _updatePendingCount();
+      // The WorkManager one-time task stays queued and will retry in background.
     } finally {
       _syncLock = false;
       _isMerging = false; // Safety reset.
       notifyListeners();
 
-      // Auto-revert status indicator to idle after 3 seconds.
       Future.delayed(const Duration(seconds: 3), () {
         if (status != SyncStatus.syncing) {
           status = SyncStatus.idle;
@@ -238,44 +270,33 @@ class SyncService extends ChangeNotifier {
 
   // ── Drive restore ──────────────────────────────────────────────────────────
 
-  /// Restores from a named Drive backup using smart merge (never overwrites
-  /// newer local data).
+  /// Restores from a named Drive backup using smart merge.
   ///
-  /// Steps:
-  ///   1. Download the requested backup file.
-  ///   2. Validate its structure and schema version.
-  ///   3. Create a local safety backup of current data before applying.
-  ///   4. Apply merge (Last-Write-Wins — newer record always wins).
+  /// Flow: download → validate → safety snapshot → merge.
   Future<void> restoreFromDriveBackup(String fileName) async {
     if (!isSignedIn) return;
     status = SyncStatus.syncing;
     notifyListeners();
 
     try {
-      // 1. Download.
       final json = await DriveService.instance.downloadBackupByName(fileName);
       if (json == null) {
         throw Exception('Could not download "$fileName" from Drive.');
       }
 
-      // 2. Decode + validate.
       final data = BackupSerializer.decode(json);
       if (data == null) {
         throw Exception(
-          'The backup file "$fileName" could not be parsed. '
-          'It may be corrupted.',
-        );
+            'Backup file "$fileName" could not be parsed — may be corrupted.');
       }
 
       final validation = BackupSerializer.validate(data);
       if (!validation.isValid) {
-        throw Exception('Backup validation failed: ${validation.message}');
+        throw Exception('Backup validation failed:\n${validation.message}');
       }
 
-      // 3. Safety snapshot of current local data before applying.
       await DatabaseHelper.instance.createSafetyBackup();
 
-      // 4. Merge (suppress sync loop).
       _isMerging = true;
       try {
         await DatabaseHelper.instance.mergeRemoteData(data);
