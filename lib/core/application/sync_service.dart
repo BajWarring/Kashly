@@ -26,6 +26,11 @@ class SyncService extends ChangeNotifier {
   // NEW: exposes the last auth error to the UI
   String? lastAuthError;
 
+  void clearError() {
+    lastAuthError = null;
+    notifyListeners();
+  }
+
   Timer? _debounceTimer;
 
   Future<void> initialize() async {
