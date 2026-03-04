@@ -19,7 +19,7 @@ class SyncService extends ChangeNotifier {
   
   bool isSignedIn = false;
   String? userEmail;
-  String? userPhotoUrl; // NEW: Added to store the Google Profile Picture
+  String? userPhotoUrl;
   int lastSyncTime = 0;
   String? _remoteFileId;
 
@@ -30,14 +30,28 @@ class SyncService extends ChangeNotifier {
     lastSyncTime = prefs.getInt('lastSyncTime') ?? 0;
     _remoteFileId = prefs.getString('driveFileId');
     
-    final account = await AuthService.instance.signInSilently();
-    _updateAuthState(account);
+    try {
+      final account = await AuthService.instance.signInSilently();
+      _updateAuthState(account);
+    } catch (_) {
+      // Ignore silent sign-in errors
+    }
   }
 
+  // FIXED: Added throws so the UI can catch and display the exact Google error
   Future<void> signIn() async {
-    final account = await AuthService.instance.signIn();
-    _updateAuthState(account);
-    if (isSignedIn) await performTwoWaySync();
+    try {
+      final account = await AuthService.instance.signIn();
+      if (account != null) {
+        _updateAuthState(account);
+        await performTwoWaySync();
+      } else {
+        throw Exception('Sign-in aborted by user.');
+      }
+    } catch (e) {
+      debugPrint("Auth Error: $e");
+      throw Exception(e.toString()); // Pass to UI
+    }
   }
 
   Future<void> signOut() async {
@@ -48,8 +62,8 @@ class SyncService extends ChangeNotifier {
   void _updateAuthState(GoogleSignInAccount? account) {
     isSignedIn = account != null;
     userEmail = account?.email;
-    userPhotoUrl = account?.photoUrl; // Captures the profile picture
-    notifyListeners(); // This instantly triggers UI rebuilds
+    userPhotoUrl = account?.photoUrl;
+    notifyListeners();
   }
 
   void triggerAutoSync() {
