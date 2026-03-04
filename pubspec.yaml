@@ -40,7 +40,7 @@ dependencies:
   # ── Background sync ──────────────────────────────────────────────────────────
   # Runs the two-way Drive sync as a scheduled Android WorkManager task.
   # Works even when the app is closed, killed from recents, or after reboot.
-  workmanager: ^0.5.7
+  workmanager: ^0.9.0+3
 
 dev_dependencies:
   flutter_test:
