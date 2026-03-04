@@ -9,23 +9,19 @@ import '../data/auth_service.dart';
 import '../data/database_helper.dart';
 import '../data/drive_service.dart';
 
-// ─── Callback dispatcher ───────────────────────────────────────────────────
-//
-// MUST be a top-level function — WorkManager spawns a fresh Dart isolate and
-// calls this entry-point directly. Class methods or lambdas cannot be used.
-
 @pragma('vm:entry-point')
 void callbackDispatcher() {
   Workmanager().executeTask((taskName, inputData) async {
-    debugPrint('[WorkManager] Task started: $taskName');
+    WidgetsFlutterBinding.ensureInitialized();
+    // This is the critical missing line — registers sqflite,
+    // shared_preferences, etc. inside the background isolate.
+    DartPluginRegistrant.ensureInitialized();
+
     try {
-      // Required for platform channels (sqflite, shared_preferences, etc.)
-      // to work inside a background isolate.
-      WidgetsFlutterBinding.ensureInitialized();
       return await BackgroundSyncExecutor.execute();
     } catch (e) {
       debugPrint('[WorkManager] Unhandled error in "$taskName": $e');
-      return false; // Ask WorkManager to retry with exponential back-off.
+      return false;
     }
   });
 }
