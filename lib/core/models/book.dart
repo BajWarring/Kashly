@@ -37,7 +37,8 @@ class Book {
       id: map['id'],
       name: map['name'],
       description: map['description'] ?? '',
-      balance: map['balance'],
+      // STRICT CASTING: Prevents silent crash if SQLite returns an int instead of double
+      balance: (map['balance'] as num).toDouble(),
       createdAt: map['createdAt'],
       timestamp: map['timestamp'],
       currency: map['currency'],
