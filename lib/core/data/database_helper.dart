@@ -534,4 +534,40 @@ class DatabaseHelper {
       }
     });
   }
+/// Used exclusively by Drive/local restore operations.
+///
+/// Unlike [mergeRemoteData] (which keeps whichever record is newer),
+/// this stamps every incoming record with the CURRENT timestamp so the
+/// restored data always wins over anything already in the local DB —
+/// and over the current Drive backup on the next sync.
+Future<void> forceRestoreFromBackup(Map<String, dynamic> backupData) async {
+  final db = await instance.database;
+  final tables = [
+    'cashbooks', 'entries', 'custom_fields', 'field_options', 'edit_logs'
+  ];
+  final int now = _now;
+
+  await db.transaction((txn) async {
+    for (final table in tables) {
+      if (!backupData.containsKey(table)) continue;
+      final dynamic rawList = backupData[table];
+      if (rawList is! List) continue;
+
+      for (final dynamic item in rawList) {
+        if (item is! Map) continue;
+        final Map<String, dynamic> record = Map<String, dynamic>.from(item);
+        if (record['id'] == null) continue;
+
+        // Stamp with current time so this record wins every future LWW merge.
+        record['updatedAt'] = now;
+        record.putIfAbsent('isDeleted', () => 0);
+
+        await txn.insert(
+          table,
+          record,
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
+      }
+    }
+  });
 }
