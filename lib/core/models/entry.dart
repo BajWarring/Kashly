@@ -3,14 +3,15 @@ import 'dart:convert';
 class Entry {
   String id;
   String bookId;
-  String type; 
+  String type;
   double amount;
-  String note; 
+  String note;
   String category;
   String paymentMethod;
   int timestamp;
-  String? linkedEntryId; 
+  String? linkedEntryId;
   Map<String, dynamic> customFields;
+  int updatedAt; // tracks last local write time — compared with SyncService.lastSyncTime
 
   Entry({
     required this.id,
@@ -23,6 +24,7 @@ class Entry {
     required this.timestamp,
     this.linkedEntryId,
     this.customFields = const {},
+    this.updatedAt = 0,
   });
 
   Map<String, dynamic> toMap() {
@@ -36,7 +38,8 @@ class Entry {
       'paymentMethod': paymentMethod,
       'timestamp': timestamp,
       'linkedEntryId': linkedEntryId,
-      'customFields': jsonEncode(customFields), 
+      'customFields': jsonEncode(customFields),
+      // updatedAt is intentionally omitted — DatabaseHelper sets it on every write
     };
   }
 
@@ -52,7 +55,10 @@ class Entry {
       paymentMethod: map['paymentMethod'],
       timestamp: map['timestamp'],
       linkedEntryId: map['linkedEntryId'],
-      customFields: map['customFields'] != null ? jsonDecode(map['customFields']) : {},
+      customFields: map['customFields'] != null
+          ? jsonDecode(map['customFields'])
+          : {},
+      updatedAt: map['updatedAt'] ?? 0,
     );
   }
 }
