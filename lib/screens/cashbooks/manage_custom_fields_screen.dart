@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/models/custom_field.dart';
-import '../../core/database_helper.dart';
+import '../../core/data/database_helper.dart';
 import '../../core/theme.dart';
 
 class ManageCustomFieldsScreen extends StatefulWidget {
