@@ -3,17 +3,13 @@ import 'dart:convert';
 class Entry {
   String id;
   String bookId;
-  String type; // 'in' or 'out'
+  String type; 
   double amount;
-  String note; // remarks
+  String note; 
   String category;
   String paymentMethod;
-  int timestamp; // date & time
-  
-  // For double-entry features (links to an entry in another book)
+  int timestamp;
   String? linkedEntryId; 
-  
-  // For dynamic custom fields (contacts, extra categories, etc.)
   Map<String, dynamic> customFields;
 
   Entry({
@@ -40,7 +36,6 @@ class Entry {
       'paymentMethod': paymentMethod,
       'timestamp': timestamp,
       'linkedEntryId': linkedEntryId,
-      // Convert the Map to a JSON string for SQLite
       'customFields': jsonEncode(customFields), 
     };
   }
@@ -50,13 +45,13 @@ class Entry {
       id: map['id'],
       bookId: map['bookId'],
       type: map['type'],
-      amount: map['amount'],
+      // STRICT CASTING: Prevents silent crash if SQLite returns an int instead of double
+      amount: (map['amount'] as num).toDouble(),
       note: map['note'],
       category: map['category'],
       paymentMethod: map['paymentMethod'],
       timestamp: map['timestamp'],
       linkedEntryId: map['linkedEntryId'],
-      // Decode the JSON string back into a Map
       customFields: map['customFields'] != null ? jsonDecode(map['customFields']) : {},
     );
   }
