@@ -5,7 +5,7 @@ import 'package:share_plus/share_plus.dart';
 import 'package:file_picker/file_picker.dart';
 
 import '../../../../core/theme.dart';
-import '../../../../core/database_helper.dart';
+import '../../../../core/data/database_helper.dart';
 
 class LocalBackupRestoreScreen extends StatefulWidget {
   const LocalBackupRestoreScreen({super.key});
