@@ -570,4 +570,5 @@ Future<void> forceRestoreFromBackup(Map<String, dynamic> backupData) async {
       }
     }
   });
+ }
 }
