@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../../../../core/theme.dart';
 import 'google_drive_screen.dart';
 import 'local_backup_restore_screen.dart';
-import '../../../../core/sync/sync_service.dart';
+import '../../../../core/application/sync_service.dart';
 
 class BackupManagerScreen extends StatefulWidget {
   const BackupManagerScreen({super.key});
