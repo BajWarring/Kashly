@@ -6,14 +6,17 @@ import '../../core/models/book.dart';
 import '../../core/models/entry.dart';
 import '../../core/models/edit_log.dart';
 import '../../core/data/database_helper.dart';
+import '../../core/application/sync_service.dart';
 import '../../core/theme.dart';
+import '../../core/widgets/sync_status_icon.dart';
 import 'add_entry_screen.dart';
 
 class EntryDetailsScreen extends StatefulWidget {
   final Entry entry;
   final Book book;
 
-  const EntryDetailsScreen({super.key, required this.entry, required this.book});
+  const EntryDetailsScreen(
+      {super.key, required this.entry, required this.book});
 
   @override
   State<EntryDetailsScreen> createState() => _EntryDetailsScreenState();
@@ -24,7 +27,7 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
   Map<int, List<EditLog>> groupedLogs = {};
   final Map<String, String> _customFieldNames = {};
   bool _isLoadingLogs = true;
-  
+
   Book? _linkedBook;
   List<Book> _availableBooksToLink = [];
 
@@ -37,26 +40,28 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
 
   Future<void> _loadData() async {
     setState(() => _isLoadingLogs = true);
-    
-    final logs = await DatabaseHelper.instance.getLogsForEntry(_currentEntry.id);
-    final cfs = await DatabaseHelper.instance.getCustomFieldsForBook(widget.book.id);
-    
-    final allBooks = await DatabaseHelper.instance.getAllBooks();
-    _availableBooksToLink = allBooks.where((b) => b.id != widget.book.id).toList();
 
-    Entry? linked = await DatabaseHelper.instance.getLinkedEntry(_currentEntry.id);
+    final logs =
+        await DatabaseHelper.instance.getLogsForEntry(_currentEntry.id);
+    final cfs =
+        await DatabaseHelper.instance.getCustomFieldsForBook(widget.book.id);
+
+    final allBooks = await DatabaseHelper.instance.getAllBooks();
+    _availableBooksToLink =
+        allBooks.where((b) => b.id != widget.book.id).toList();
+
+    final Entry? linked =
+        await DatabaseHelper.instance.getLinkedEntry(_currentEntry.id);
     if (linked != null) {
-      _linkedBook = await DatabaseHelper.instance.getBookById(linked.bookId);
+      _linkedBook =
+          await DatabaseHelper.instance.getBookById(linked.bookId);
     } else {
       _linkedBook = null;
     }
 
-    Map<int, List<EditLog>> grouped = {};
+    final Map<int, List<EditLog>> grouped = {};
     for (var log in logs) {
-      if (!grouped.containsKey(log.timestamp)) {
-        grouped[log.timestamp] = [];
-      }
-      grouped[log.timestamp]!.add(log);
+      grouped.putIfAbsent(log.timestamp, () => []).add(log);
     }
 
     if (!mounted) return;
@@ -70,17 +75,23 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
   }
 
   String _formatDateTime(int ms) {
-    return DateFormat('MMM d, yyyy • h:mm a').format(DateTime.fromMillisecondsSinceEpoch(ms));
+    return DateFormat('MMM d, yyyy • h:mm a')
+        .format(DateTime.fromMillisecondsSinceEpoch(ms));
   }
 
   void _openEditEditor() async {
-    final bool? didUpdate = await Navigator.push(context, MaterialPageRoute(builder: (context) => AddEntryScreen(book: widget.book, existingEntry: _currentEntry)));
+    final bool? didUpdate = await Navigator.push(
+        context,
+        MaterialPageRoute(
+            builder: (context) => AddEntryScreen(
+                book: widget.book, existingEntry: _currentEntry)));
     if (didUpdate == true) {
-      final updatedEntry = await DatabaseHelper.instance.getEntryById(_currentEntry.id);
-      if (!mounted) return; 
+      final updatedEntry =
+          await DatabaseHelper.instance.getEntryById(_currentEntry.id);
+      if (!mounted) return;
       if (updatedEntry != null) {
         setState(() => _currentEntry = updatedEntry);
-        _loadData(); 
+        _loadData();
       }
     }
   }
@@ -91,32 +102,46 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Entry?'),
-        content: const Text('Are you sure you want to permanently delete this transaction?'),
+        content: const Text(
+            'Are you sure you want to permanently delete this transaction?'),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-          ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: danger), onPressed: () => Navigator.pop(ctx, true), child: const Text('Delete', style: TextStyle(color: Colors.white)))
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          ElevatedButton(
+              style: ElevatedButton.styleFrom(backgroundColor: danger),
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Delete',
+                  style: TextStyle(color: Colors.white)))
         ],
-      )
+      ),
     );
 
     if (confirm == true) {
-      Entry? linked = await DatabaseHelper.instance.getLinkedEntry(_currentEntry.id);
+      final Entry? linked =
+          await DatabaseHelper.instance.getLinkedEntry(_currentEntry.id);
       if (linked != null) {
-        final lb = await DatabaseHelper.instance.getBookById(linked.bookId);
+        final lb =
+            await DatabaseHelper.instance.getBookById(linked.bookId);
         if (lb != null) {
-          lb.balance += (linked.type == 'in' ? -linked.amount : linked.amount);
+          lb.balance +=
+              (linked.type == 'in' ? -linked.amount : linked.amount);
           await DatabaseHelper.instance.updateBook(lb);
         }
         await DatabaseHelper.instance.deleteEntry(linked.id);
       }
 
       await DatabaseHelper.instance.deleteEntry(_currentEntry.id);
-      double amountToReverse = _currentEntry.type == 'in' ? -_currentEntry.amount : _currentEntry.amount;
+      double amountToReverse = _currentEntry.type == 'in'
+          ? -_currentEntry.amount
+          : _currentEntry.amount;
       widget.book.balance += amountToReverse;
       await DatabaseHelper.instance.updateBook(widget.book);
-      navigator.pop(); 
+      navigator.pop();
     }
   }
+
+  // ── Link dialog helpers ────────────────────────────────────────────────────
 
   Future<bool> _showLinkTip() async {
     if (DatabaseHelper.hideLinkTip) return true;
@@ -125,36 +150,43 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (c, setS) => AlertDialog(
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-          title: const Row(children: [Icon(Icons.link, color: accent), SizedBox(width: 8), Text('Link Cashbooks')]),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Text('Linking an entry will automatically create a corresponding entry in the selected cashbook with the opposite type (e.g., Cash In becomes Cash Out). This helps track transfers between books.'),
-              const SizedBox(height: 16),
-              CheckboxListTile(
-                contentPadding: EdgeInsets.zero,
-                controlAffinity: ListTileControlAffinity.leading,
-                activeColor: accent,
-                value: localHide,
-                onChanged: (v) => setS(() => localHide = v ?? false),
-                title: const Text('Do not show again', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
-              )
-            ]
-          ),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          title: const Row(children: [
+            Icon(Icons.link, color: accent),
+            SizedBox(width: 8),
+            Text('Link Cashbooks')
+          ]),
+          content: Column(mainAxisSize: MainAxisSize.min, children: [
+            const Text(
+                'Linking an entry will automatically create a corresponding entry in the selected cashbook with the opposite type (e.g., Cash In becomes Cash Out). This helps track transfers between books.'),
+            const SizedBox(height: 16),
+            CheckboxListTile(
+              contentPadding: EdgeInsets.zero,
+              controlAffinity: ListTileControlAffinity.leading,
+              activeColor: accent,
+              value: localHide,
+              onChanged: (v) => setS(() => localHide = v ?? false),
+              title: const Text('Do not show again',
+                  style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+            )
+          ]),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('Cancel')),
             ElevatedButton(
               style: ElevatedButton.styleFrom(backgroundColor: accent),
               onPressed: () {
                 DatabaseHelper.hideLinkTip = localHide;
                 Navigator.pop(ctx, true);
               },
-              child: const Text('OK', style: TextStyle(color: Colors.white))
+              child: const Text('OK',
+                  style: TextStyle(color: Colors.white)),
             )
-          ]
-        )
-      )
+          ],
+        ),
+      ),
     );
     return res ?? false;
   }
@@ -164,7 +196,6 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
       bool proceed = await _showLinkTip();
       if (!proceed) return;
     }
-
     if (!mounted) return;
 
     if (_availableBooksToLink.isEmpty) {
@@ -172,9 +203,14 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
         context: context,
         builder: (ctx) => AlertDialog(
           title: const Text('No other cashbooks'),
-          content: const Text('Add more cashbooks to link entries between them.'),
-          actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('OK'))]
-        )
+          content: const Text(
+              'Add more cashbooks to link entries between them.'),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('OK'))
+          ],
+        ),
       );
       return;
     }
@@ -182,30 +218,61 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     final selected = await showModalBottomSheet<Book>(
       context: context,
       backgroundColor: Colors.white,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Text('Select Cashbook to Link', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+            const Text('Select Cashbook to Link',
+                style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
             const SizedBox(height: 16),
             ListTile(
-              leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(8)), child: const Icon(Icons.link_off, color: textMuted, size: 20)),
-              title: const Text('None (Remove Link)', style: TextStyle(color: textMuted, fontWeight: FontWeight.w600)),
-              onTap: () => Navigator.pop(ctx, Book(id: 'REMOVE', name: '', description: '', balance: 0, createdAt: 0, timestamp: 0, currency: '', icon: '')),
+              leading: Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                      color: appBg,
+                      borderRadius: BorderRadius.circular(8)),
+                  child: const Icon(Icons.link_off,
+                      color: textMuted, size: 20)),
+              title: const Text('None (Remove Link)',
+                  style: TextStyle(
+                      color: textMuted, fontWeight: FontWeight.w600)),
+              onTap: () => Navigator.pop(
+                  ctx,
+                  Book(
+                      id: 'REMOVE',
+                      name: '',
+                      description: '',
+                      balance: 0,
+                      createdAt: 0,
+                      timestamp: 0,
+                      currency: '',
+                      icon: '')),
             ),
             const Divider(height: 1),
             ..._availableBooksToLink.map((b) => ListTile(
-              leading: Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: accentLight, borderRadius: BorderRadius.circular(8)), child: Icon(availableIcons[b.icon] ?? Icons.book, color: accent, size: 20)),
-              title: Text(b.name, style: const TextStyle(fontWeight: FontWeight.bold)),
-              trailing: _linkedBook?.id == b.id ? const Icon(Icons.check_circle, color: accent) : null,
-              onTap: () => Navigator.pop(ctx, b),
-            ))
-          ]
-        )
-      )
+                  leading: Container(
+                      padding: const EdgeInsets.all(8),
+                      decoration: BoxDecoration(
+                          color: accentLight,
+                          borderRadius: BorderRadius.circular(8)),
+                      child: Icon(
+                          availableIcons[b.icon] ?? Icons.book,
+                          color: accent,
+                          size: 20)),
+                  title: Text(b.name,
+                      style: const TextStyle(fontWeight: FontWeight.bold)),
+                  trailing: _linkedBook?.id == b.id
+                      ? const Icon(Icons.check_circle, color: accent)
+                      : null,
+                  onTap: () => Navigator.pop(ctx, b),
+                ))
+          ],
+        ),
+      ),
     );
 
     if (selected != null) {
@@ -214,12 +281,16 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
   }
 
   void _updateLink(Book? targetBook) async {
-    Entry? existingLinked = await DatabaseHelper.instance.getLinkedEntry(_currentEntry.id);
+    final Entry? existingLinked =
+        await DatabaseHelper.instance.getLinkedEntry(_currentEntry.id);
 
     if (existingLinked != null) {
-      final lb = await DatabaseHelper.instance.getBookById(existingLinked.bookId);
+      final lb =
+          await DatabaseHelper.instance.getBookById(existingLinked.bookId);
       if (lb != null) {
-        lb.balance -= (existingLinked.type == 'in' ? existingLinked.amount : -existingLinked.amount);
+        lb.balance -= (existingLinked.type == 'in'
+            ? existingLinked.amount
+            : -existingLinked.amount);
         await DatabaseHelper.instance.updateBook(lb);
       }
       await DatabaseHelper.instance.deleteEntry(existingLinked.id);
@@ -240,44 +311,102 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
         customFields: _currentEntry.customFields,
       );
       await DatabaseHelper.instance.insertEntry(subEntry);
-      targetBook.balance += (subEntry.type == 'in' ? subEntry.amount : -subEntry.amount);
+      targetBook.balance +=
+          (subEntry.type == 'in' ? subEntry.amount : -subEntry.amount);
       await DatabaseHelper.instance.updateBook(targetBook);
       _currentEntry.linkedEntryId = subEntry.id;
     }
-    
+
     await DatabaseHelper.instance.updateEntry(_currentEntry);
     _loadData();
     if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Link updated successfully!')));
+      ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Link updated successfully!')));
     }
   }
 
   void _showShareSheet(BuildContext context) {
-    int selectedOption = 0; 
+    int selectedOption = 0;
     showModalBottomSheet(
-      context: context, backgroundColor: Colors.white, shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
+      context: context,
+      backgroundColor: Colors.white,
+      shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24))),
       builder: (ctx) => StatefulBuilder(
         builder: (context, setSheetState) => Padding(
           padding: const EdgeInsets.all(24),
           child: Column(
-            mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Share Entry', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: textDark)),
+              const Text('Share Entry',
+                  style: TextStyle(
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: textDark)),
               const SizedBox(height: 16),
               InkWell(
-                onTap: () => setSheetState(() => selectedOption = 0), borderRadius: BorderRadius.circular(12),
-                child: Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Row(children: [Icon(selectedOption == 0 ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: selectedOption == 0 ? accent : textMuted), const SizedBox(width: 12), const Text('Share without Edit Logs', style: TextStyle(fontWeight: FontWeight.w600, color: textDark, fontSize: 16))])),
+                onTap: () => setSheetState(() => selectedOption = 0),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(children: [
+                    Icon(
+                        selectedOption == 0
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        color: selectedOption == 0 ? accent : textMuted),
+                    const SizedBox(width: 12),
+                    const Text('Share without Edit Logs',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: textDark,
+                            fontSize: 16))
+                  ]),
+                ),
               ),
               InkWell(
-                onTap: () => setSheetState(() => selectedOption = 1), borderRadius: BorderRadius.circular(12),
-                child: Padding(padding: const EdgeInsets.symmetric(vertical: 12), child: Row(children: [Icon(selectedOption == 1 ? Icons.radio_button_checked : Icons.radio_button_unchecked, color: selectedOption == 1 ? accent : textMuted), const SizedBox(width: 12), const Text('Share including Edit Logs', style: TextStyle(fontWeight: FontWeight.w600, color: textDark, fontSize: 16))])),
+                onTap: () => setSheetState(() => selectedOption = 1),
+                borderRadius: BorderRadius.circular(12),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: Row(children: [
+                    Icon(
+                        selectedOption == 1
+                            ? Icons.radio_button_checked
+                            : Icons.radio_button_unchecked,
+                        color: selectedOption == 1 ? accent : textMuted),
+                    const SizedBox(width: 12),
+                    const Text('Share including Edit Logs',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600,
+                            color: textDark,
+                            fontSize: 16))
+                  ]),
+                ),
               ),
               const SizedBox(height: 24),
-              SizedBox(width: double.infinity, child: ElevatedButton.icon(onPressed: () => Navigator.pop(ctx), icon: const Icon(Icons.share, color: Colors.white, size: 18), label: const Text('Share Now', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: accent, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)))))
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () => Navigator.pop(ctx),
+                  icon: const Icon(Icons.share,
+                      color: Colors.white, size: 18),
+                  label: const Text('Share Now',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: accent,
+                    padding: const EdgeInsets.symmetric(vertical: 16),
+                    shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16)),
+                  ),
+                ),
+              )
             ],
           ),
         ),
-      )
+      ),
     );
   }
 
@@ -285,9 +414,19 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Row(children: [Icon(icon, size: 12, color: textLight), const SizedBox(width: 4), Text(title.toUpperCase(), style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: textMuted))]),
+        Row(children: [
+          Icon(icon, size: 12, color: textLight),
+          const SizedBox(width: 4),
+          Text(title.toUpperCase(),
+              style: const TextStyle(
+                  fontSize: 10, fontWeight: FontWeight.bold, color: textMuted))
+        ]),
         const SizedBox(height: 4),
-        Text(val.isEmpty ? '-' : val, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: textDark), maxLines: 1, overflow: TextOverflow.ellipsis),
+        Text(val.isEmpty ? '-' : val,
+            style: const TextStyle(
+                fontSize: 14, fontWeight: FontWeight.w600, color: textDark),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis),
       ],
     );
   }
@@ -298,32 +437,80 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
     final Color eColor = isIn ? success : danger;
     final Color eBg = isIn ? successLight : dangerLight;
 
-    final dateStr = DateFormat('MMM d, yyyy').format(DateTime.fromMillisecondsSinceEpoch(_currentEntry.timestamp));
-    final timeStr = DateFormat('h:mm a').format(DateTime.fromMillisecondsSinceEpoch(_currentEntry.timestamp));
+    final dateStr = DateFormat('MMM d, yyyy')
+        .format(DateTime.fromMillisecondsSinceEpoch(_currentEntry.timestamp));
+    final timeStr = DateFormat('h:mm a')
+        .format(DateTime.fromMillisecondsSinceEpoch(_currentEntry.timestamp));
 
     Map<String, dynamic> cFields = {};
     if (_currentEntry.customFields.isNotEmpty) {
-      try { cFields = _currentEntry.customFields; } catch(_) { /* ignore map error */ }
+      try {
+        cFields = _currentEntry.customFields;
+      } catch (_) {}
     }
+
+    // Whether this specific entry is unsynced
+    final sync = SyncService.instance;
+    final bool entryUnsynced =
+        sync.isSignedIn && _currentEntry.updatedAt > sync.lastSyncTime;
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Entry Details'),
+        // Move title left to make room for icons
+        titleSpacing: 0,
+        title: const Padding(
+          padding: EdgeInsets.only(left: 4),
+          child: Text('Entry Details'),
+        ),
         actions: [
+          // ── Sync cloud icon (left of Link button) ─────────────────────
+          const SyncStatusIcon(),
+          const SizedBox(width: 4),
+          // ── Link button ───────────────────────────────────────────────
           TextButton.icon(
             onPressed: _handleLinkButton,
-            icon: Icon(Icons.link, color: _linkedBook != null ? accent : textMuted),
-            label: Text(_linkedBook != null ? _linkedBook!.name : 'Link', style: TextStyle(color: _linkedBook != null ? accent : textMuted, fontWeight: FontWeight.bold)),
+            icon: Icon(Icons.link,
+                color: _linkedBook != null ? accent : textMuted, size: 18),
+            label: Text(
+              _linkedBook != null ? _linkedBook!.name : 'Link',
+              style: TextStyle(
+                  color: _linkedBook != null ? accent : textMuted,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13),
+              overflow: TextOverflow.ellipsis,
+            ),
+            style: TextButton.styleFrom(
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            ),
           ),
-          const SizedBox(width: 8),
+          const SizedBox(width: 4),
         ],
       ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          Container(
+          // ── Entry card ───────────────────────────────────────────────────
+          AnimatedContainer(
+            duration: const Duration(milliseconds: 300),
             padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: borderCol)),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(
+                color: entryUnsynced ? warning : borderCol,
+                width: entryUnsynced ? 1.8 : 1,
+              ),
+              boxShadow: entryUnsynced
+                  ? [
+                      BoxShadow(
+                        color: warning.withValues(alpha: 0.10),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      )
+                    ]
+                  : null,
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -331,34 +518,102 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Container(padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4), decoration: BoxDecoration(color: eBg, borderRadius: BorderRadius.circular(8)), child: Text('CASH ${_currentEntry.type.toUpperCase()}', style: TextStyle(color: eColor, fontSize: 11, fontWeight: FontWeight.w900, letterSpacing: 1))),
-                    
+                    Row(
+                      children: [
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 10, vertical: 4),
+                          decoration: BoxDecoration(
+                              color: eBg,
+                              borderRadius: BorderRadius.circular(8)),
+                          child: Text(
+                            'CASH ${_currentEntry.type.toUpperCase()}',
+                            style: TextStyle(
+                                color: eColor,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w900,
+                                letterSpacing: 1),
+                          ),
+                        ),
+                        if (entryUnsynced) ...[
+                          const SizedBox(width: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 7, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: warningLight,
+                              borderRadius: BorderRadius.circular(8),
+                              border:
+                                  Border.all(color: warning, width: 0.8),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.cloud_upload_rounded,
+                                    size: 11, color: warning),
+                                const SizedBox(width: 4),
+                                Text(
+                                  'Not synced',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: warning,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
                     Column(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
-                        Text('$dateStr • $timeStr', style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textMuted)),
+                        Text('$dateStr • $timeStr',
+                            style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: textMuted)),
                         const SizedBox(height: 2),
-                        Text('ID: ${_currentEntry.id}', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: textLight)),
+                        Text('ID: ${_currentEntry.id}',
+                            style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.bold,
+                                color: textLight)),
                       ],
                     ),
                   ],
                 ),
                 const SizedBox(height: 20),
-                Text('₹${_currentEntry.amount.toStringAsFixed(2)}', style: TextStyle(fontSize: 32, fontWeight: FontWeight.w900, color: eColor)),
+                Text('₹${_currentEntry.amount.toStringAsFixed(2)}',
+                    style: TextStyle(
+                        fontSize: 32,
+                        fontWeight: FontWeight.w900,
+                        color: eColor)),
                 const SizedBox(height: 8),
-                Text(_currentEntry.note, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w600, color: textDark)),
+                Text(_currentEntry.note,
+                    style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w600,
+                        color: textDark)),
                 const Divider(height: 32, color: borderCol),
-                
                 GridView.count(
-                  crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(),
-                  childAspectRatio: 3.0, mainAxisSpacing: 8, crossAxisSpacing: 12,
+                  crossAxisCount: 2,
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
+                  childAspectRatio: 3.0,
+                  mainAxisSpacing: 8,
+                  crossAxisSpacing: 12,
                   children: [
-                    _buildGridItem('Category', _currentEntry.category, Icons.category),
-                    _buildGridItem('Payment Mode', _currentEntry.paymentMethod, Icons.account_balance),
-                    
+                    _buildGridItem('Category', _currentEntry.category,
+                        Icons.category),
+                    _buildGridItem('Payment Mode',
+                        _currentEntry.paymentMethod, Icons.account_balance),
                     ...cFields.entries.map((e) {
-                      String fieldName = _customFieldNames[e.key] ?? 'Custom Field';
-                      return _buildGridItem(fieldName, e.value.toString(), Icons.label_important);
+                      String fieldName =
+                          _customFieldNames[e.key] ?? 'Custom Field';
+                      return _buildGridItem(
+                          fieldName, e.value.toString(), Icons.label_important);
                     }),
                   ],
                 )
@@ -367,14 +622,25 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
           ),
           const SizedBox(height: 16),
 
+          // ── Created / modified info ──────────────────────────────────────
           Container(
             padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
+            decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: borderCol)),
             child: Row(
               children: [
                 const Icon(Icons.info_outline, color: textLight, size: 20),
                 const SizedBox(width: 12),
-                Expanded(child: Text('Entry created on ${_formatDateTime(groupedLogs.isEmpty ? _currentEntry.timestamp : groupedLogs.keys.last)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: textMuted))),
+                Expanded(
+                    child: Text(
+                  'Entry created on ${_formatDateTime(groupedLogs.isEmpty ? _currentEntry.timestamp : groupedLogs.keys.last)}',
+                  style: const TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w500,
+                      color: textMuted),
+                )),
               ],
             ),
           ),
@@ -383,64 +649,128 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
             Container(
               margin: const EdgeInsets.only(top: 8),
               padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(color: appBg, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
+              decoration: BoxDecoration(
+                  color: appBg,
+                  borderRadius: BorderRadius.circular(16),
+                  border: Border.all(color: borderCol)),
               child: Row(
                 children: [
                   const Icon(Icons.edit, color: textLight, size: 20),
                   const SizedBox(width: 12),
-                  Expanded(child: Text('Entry last modified on ${_formatDateTime(_currentEntry.timestamp)}', style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: textMuted))),
+                  Expanded(
+                      child: Text(
+                    'Entry last modified on ${_formatDateTime(_currentEntry.timestamp)}',
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w500,
+                        color: textMuted),
+                  )),
                 ],
               ),
             ),
-            
+
           const SizedBox(height: 24),
 
-          const Padding(padding: EdgeInsets.only(left: 8, bottom: 12), child: Text('EDIT HISTORY', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold, color: textLight, letterSpacing: 1.2))),
-          
+          // ── Edit history ─────────────────────────────────────────────────
+          const Padding(
+            padding: EdgeInsets.only(left: 8, bottom: 12),
+            child: Text('EDIT HISTORY',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: textLight,
+                    letterSpacing: 1.2)),
+          ),
+
           if (_isLoadingLogs)
-             const Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator(color: accent)))
+            const Center(
+                child: Padding(
+                    padding: EdgeInsets.all(20),
+                    child: CircularProgressIndicator(color: accent)))
           else if (groupedLogs.isEmpty)
             Container(
-              padding: const EdgeInsets.all(24), alignment: Alignment.center,
-              decoration: BoxDecoration(color: Colors.transparent, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol, style: BorderStyle.solid)),
-              child: const Text('No edit history found.', style: TextStyle(color: textMuted, fontWeight: FontWeight.w500)),
+              padding: const EdgeInsets.all(24),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(color: borderCol, style: BorderStyle.solid),
+              ),
+              child: const Text('No edit history found.',
+                  style: TextStyle(
+                      color: textMuted, fontWeight: FontWeight.w500)),
             )
           else
             ...groupedLogs.keys.map((timestamp) {
               final logs = groupedLogs[timestamp]!;
               return Container(
-                margin: const EdgeInsets.only(bottom: 8), 
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: borderCol)),
+                margin: const EdgeInsets.only(bottom: 8),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: borderCol)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Row(children: [const Icon(Icons.history, size: 12, color: textLight), const SizedBox(width: 6), Text(_formatDateTime(timestamp), style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textMuted))]),
+                    Row(children: [
+                      const Icon(Icons.history,
+                          size: 12, color: textLight),
+                      const SizedBox(width: 6),
+                      Text(_formatDateTime(timestamp),
+                          style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.bold,
+                              color: textMuted))
+                    ]),
                     const SizedBox(height: 8),
                     ...logs.map((log) => Padding(
-                      padding: const EdgeInsets.only(bottom: 6.0),
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.center,
-                        children: [
-                          SizedBox(width: 75, child: Text(log.field, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: textDark))),
-                          Expanded(
-                            child: Row(
-                              children: [
-                                Flexible(child: Text(log.oldValue, style: const TextStyle(fontSize: 12, color: danger, decoration: TextDecoration.lineThrough, fontWeight: FontWeight.w500), overflow: TextOverflow.ellipsis)),
-                                const Padding(padding: EdgeInsets.symmetric(horizontal: 6), child: Icon(Icons.arrow_forward, size: 12, color: textLight)),
-                                Flexible(child: Text(log.newValue, style: const TextStyle(fontSize: 12, color: success, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
-                              ]
-                            )
-                          )
-                        ],
-                      ),
-                    ))
+                          padding: const EdgeInsets.only(bottom: 6.0),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.center,
+                            children: [
+                              SizedBox(
+                                  width: 75,
+                                  child: Text(log.field,
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold,
+                                          color: textDark))),
+                              Expanded(
+                                child: Row(children: [
+                                  Flexible(
+                                      child: Text(log.oldValue,
+                                          style: const TextStyle(
+                                              fontSize: 12,
+                                              color: danger,
+                                              decoration:
+                                                  TextDecoration.lineThrough,
+                                              fontWeight: FontWeight.w500),
+                                          overflow: TextOverflow.ellipsis)),
+                                  const Padding(
+                                      padding: EdgeInsets.symmetric(
+                                          horizontal: 6),
+                                      child: Icon(Icons.arrow_forward,
+                                          size: 12, color: textLight)),
+                                  Flexible(
+                                      child: Text(log.newValue,
+                                          style: const TextStyle(
+                                              fontSize: 12,
+                                              color: success,
+                                              fontWeight: FontWeight.bold),
+                                          overflow: TextOverflow.ellipsis)),
+                                ]),
+                              )
+                            ],
+                          ),
+                        ))
                   ],
                 ),
               );
             }),
-          
-          const SizedBox(height: 100), 
+
+          const SizedBox(height: 100),
         ],
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
@@ -448,11 +778,41 @@ class _EntryDetailsScreenState extends State<EntryDetailsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Row(
           children: [
-            Expanded(child: ElevatedButton.icon(onPressed: () => _showShareSheet(context), icon: const Icon(Icons.share, color: textDark), label: const Text('Share', style: TextStyle(color: textDark, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: Colors.white, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16), side: const BorderSide(color: borderCol))))),
+            Expanded(
+                child: ElevatedButton.icon(
+                    onPressed: () => _showShareSheet(context),
+                    icon: const Icon(Icons.share, color: textDark),
+                    label: const Text('Share',
+                        style: TextStyle(
+                            color: textDark, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16),
+                            side: const BorderSide(color: borderCol))))),
             const SizedBox(width: 12),
-            Expanded(flex: 2, child: ElevatedButton.icon(onPressed: _openEditEditor, icon: const Icon(Icons.edit, color: Colors.white), label: const Text('Edit Entry', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)), style: ElevatedButton.styleFrom(backgroundColor: accent, padding: const EdgeInsets.symmetric(vertical: 16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16))))),
+            Expanded(
+                flex: 2,
+                child: ElevatedButton.icon(
+                    onPressed: _openEditEditor,
+                    icon: const Icon(Icons.edit, color: Colors.white),
+                    label: const Text('Edit Entry',
+                        style: TextStyle(
+                            color: Colors.white, fontWeight: FontWeight.bold)),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: accent,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(16))))),
             const SizedBox(width: 12),
-            Container(decoration: BoxDecoration(color: dangerLight, borderRadius: BorderRadius.circular(16)), child: IconButton(icon: const Icon(Icons.delete_outline, color: danger), onPressed: _deleteEntry)),
+            Container(
+              decoration: BoxDecoration(
+                  color: dangerLight, borderRadius: BorderRadius.circular(16)),
+              child: IconButton(
+                  icon: const Icon(Icons.delete_outline, color: danger),
+                  onPressed: _deleteEntry),
+            ),
           ],
         ),
       ),
