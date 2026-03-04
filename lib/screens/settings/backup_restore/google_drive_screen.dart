@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/theme.dart';
 import '../../../../core/application/sync_service.dart';
-import '../../../../core/data/drive_service.dart';
 
 class GoogleDriveScreen extends StatelessWidget {
   const GoogleDriveScreen({super.key});
