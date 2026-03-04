@@ -5,7 +5,7 @@ import 'dart:math';
 import '../../core/models/book.dart';
 import '../../core/models/entry.dart';
 import '../../core/models/edit_log.dart';
-import '../../core/database_helper.dart';
+import '../../core/data/database_helper.dart';
 import '../../core/theme.dart';
 import 'add_entry_screen.dart';
 
