@@ -19,6 +19,7 @@ class SyncService extends ChangeNotifier {
   
   bool isSignedIn = false;
   String? userEmail;
+  String? userPhotoUrl; // NEW: Added to store the Google Profile Picture
   int lastSyncTime = 0;
   String? _remoteFileId;
 
@@ -29,7 +30,6 @@ class SyncService extends ChangeNotifier {
     lastSyncTime = prefs.getInt('lastSyncTime') ?? 0;
     _remoteFileId = prefs.getString('driveFileId');
     
-    // Check if user is already signed in
     final account = await AuthService.instance.signInSilently();
     _updateAuthState(account);
   }
@@ -45,14 +45,13 @@ class SyncService extends ChangeNotifier {
     _updateAuthState(null);
   }
 
-  // FIXED: Added "GoogleSignInAccount?" type annotation here to satisfy the linter
   void _updateAuthState(GoogleSignInAccount? account) {
     isSignedIn = account != null;
     userEmail = account?.email;
-    notifyListeners();
+    userPhotoUrl = account?.photoUrl; // Captures the profile picture
+    notifyListeners(); // This instantly triggers UI rebuilds
   }
 
-  // Automatically called by UI/Controllers after DB writes
   void triggerAutoSync() {
     if (!isSignedIn) return;
     
@@ -62,7 +61,6 @@ class SyncService extends ChangeNotifier {
     });
   }
 
-  // --- THE CORE DOUBLE-ENTRY SYNC ENGINE ---
   Future<void> performTwoWaySync() async {
     if (isSyncing || !isSignedIn) return;
 
@@ -70,14 +68,12 @@ class SyncService extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // 1. Locate File ID (fetch once, cache locally)
       if (_remoteFileId == null) {
         _remoteFileId = await DriveService.instance.getRemoteFileId();
         final prefs = await SharedPreferences.getInstance();
         if (_remoteFileId != null) await prefs.setString('driveFileId', _remoteFileId!);
       }
 
-      // 2. Download and Merge Remote Data (if exists)
       if (_remoteFileId != null) {
         final remoteJson = await DriveService.instance.downloadFile(_remoteFileId!);
         if (remoteJson != null) {
@@ -88,14 +84,11 @@ class SyncService extends ChangeNotifier {
         }
       }
 
-      // 3. Serialize Newly Merged Local Data
       final rawData = await DatabaseHelper.instance.exportAllTables();
       final finalJson = BackupSerializer.encode(rawData);
 
-      // 4. Upload Back to Drive
       await DriveService.instance.uploadFile(finalJson, existingFileId: _remoteFileId);
       
-      // 5. Update Timestamps
       lastSyncTime = DateTime.now().millisecondsSinceEpoch;
       final prefs = await SharedPreferences.getInstance();
       await prefs.setInt('lastSyncTime', lastSyncTime);
@@ -105,7 +98,6 @@ class SyncService extends ChangeNotifier {
       status = SyncStatus.error;
     } finally {
       notifyListeners();
-      // Reset success/error message to idle after 3 seconds
       Future.delayed(const Duration(seconds: 3), () {
         status = SyncStatus.idle;
         notifyListeners();
