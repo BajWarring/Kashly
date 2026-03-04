@@ -10,6 +10,7 @@ import '../cashbooks/cashbook_screen.dart';
 import '../settings/settings_main.dart';
 import 'book_details_screen.dart';
 import 'widgets/add_book_sheet.dart';
+import '../../core/services/background_permission_helper.dart';
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -29,12 +30,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
   bool _isLoading = true;
 
   @override
-  void initState() {
-    super.initState();
-    _refreshBooks();
-    // Rebuild cards whenever sync state changes (e.g. after a sync, unsynced borders clear).
-    SyncService.instance.addListener(_onSyncChanged);
-  }
+void initState() {
+  super.initState();
+  _refreshBooks();
+  SyncService.instance.addListener(_onSyncChanged);
+
+  // Prompt user to disable battery optimization on first launch
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    BackgroundPermissionHelper.checkAndPrompt(context);
+  });
+}
 
   @override
   void dispose() {
