@@ -5,6 +5,7 @@ import 'package:workmanager/workmanager.dart';
 import 'core/theme.dart';
 import 'core/services/sync_work_manager_service.dart';
 import 'screens/dashboard/dashboard_main.dart';
+import 'core/application/sync_service.dart';
 
 void main() async {
   // Must be called before any plugin or async code in main().
@@ -29,7 +30,8 @@ void main() async {
   // logs in Android Studio. Switch to false before releasing.
 
   await Workmanager().initialize(callbackDispatcher);
-
+  await SyncService.instance.initialize();
+  
   runApp(const KashlyApp());
 }
 
