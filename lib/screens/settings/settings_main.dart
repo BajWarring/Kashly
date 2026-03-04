@@ -127,10 +127,7 @@ class SettingsScreen extends StatelessWidget {
                       padding: EdgeInsets.zero,
                       constraints: const BoxConstraints(),
                       icon: const Icon(Icons.close, size: 16, color: danger),
-                      onPressed: () {
-                        syncServ.lastAuthError = null;
-                        syncServ.notifyListeners();
-                      },
+                      onPressed: () => syncServ.clearError(),
                     )
                   ],
                 ),
