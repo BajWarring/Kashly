@@ -10,6 +10,7 @@ import '../models/edit_log.dart';
 import '../models/field_option.dart';
 import '../models/custom_field.dart';
 import '../application/sync_service.dart';
+import '../application/backup_serializer.dart';
 
 class DatabaseHelper {
   static final DatabaseHelper instance = DatabaseHelper._init();
@@ -366,12 +367,10 @@ class DatabaseHelper {
   }
 
   Future<String> exportDatabaseJSON() async {
-    final Map<String, dynamic> exportData = {
-      'schemaVersion': 3,
-      'lastExported': _now,
-      ...await exportAllTables(),
-    };
-    return jsonEncode(exportData);
+    final rawData = await exportAllTables();
+    // Use BackupSerializer so local exports carry the same metadata envelope
+    // (schemaVersion, appVersion, generatedAt, recordCounts).
+    return BackupSerializer.encode(rawData);
   }
 
   Future<int> getPendingChangesCount(int lastSyncTime) async {
@@ -386,61 +385,152 @@ class DatabaseHelper {
     return count;
   }
 
-  // ─── SMART RESTORE (merge, never wipe) ───────────────────────────────────────
+  // ─── SAFETY BACKUP ────────────────────────────────────────────────────────
   //
-  // Both local and Drive restores use this. It is identical to mergeRemoteData:
-  // "Last Write Wins" — if the backup record has a newer updatedAt, it wins.
-  // Records that exist locally but NOT in the backup are NEVER deleted.
-  // This means new cashbooks/entries created after the backup are preserved.
+  // Creates a timestamped JSON snapshot of the current local database in the
+  // app's documents directory BEFORE any restore operation is applied.
+  // This gives the user a last-resort fallback if a restore goes wrong.
+  //
+  Future<void> createSafetyBackup() async {
+    try {
+      final jsonStr = await exportDatabaseJSON();
+      final dir = await getApplicationDocumentsDirectory();
+      final safetyDir = Directory('${dir.path}/kashly_safety_backups');
+      if (!await safetyDir.exists()) {
+        await safetyDir.create(recursive: true);
+      }
+
+      // Keep only the 3 most recent safety backups to avoid bloat.
+      final existing = safetyDir
+          .listSync()
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.json'))
+          .toList()
+        ..sort((a, b) => b.lastModifiedSync().compareTo(a.lastModifiedSync()));
+      if (existing.length >= 3) {
+        for (final old in existing.skip(2)) {
+          await old.delete();
+        }
+      }
+
+      final timestamp = DateTime.now().millisecondsSinceEpoch;
+      final file = File('${safetyDir.path}/safety_$timestamp.json');
+      await file.writeAsString(jsonStr);
+    } catch (e) {
+      // Safety backup failure is non-fatal — log and continue with restore.
+      // ignore: avoid_print
+      print('[DatabaseHelper] createSafetyBackup failed (non-fatal): $e');
+    }
+  }
+
+  // ─── SMART RESTORE (merge, never wipe) ────────────────────────────────────
+  //
+  // Used by both local and Drive restores.
+  //
+  // Before applying the merge this method:
+  //   1. Decodes the JSON.
+  //   2. Validates structure and schema version via BackupSerializer.
+  //   3. Creates a safety backup of current data.
+  //   4. Delegates to mergeRemoteData (Last-Write-Wins CRDT logic).
   //
   Future<void> restoreDatabaseJSON(String jsonString) async {
-    final data = jsonDecode(jsonString) as Map<String, dynamic>;
+    // 1. Decode.
+    final data = BackupSerializer.decode(jsonString);
+    if (data == null) {
+      throw Exception(
+        'The selected backup file could not be parsed. '
+        'It may be corrupted or in an unsupported format.',
+      );
+    }
+
+    // 2. Validate.
+    final validation = BackupSerializer.validate(data);
+    if (!validation.isValid) {
+      throw Exception('Restore aborted — backup validation failed:\n${validation.message}');
+    }
+
+    // 3. Safety snapshot BEFORE touching local data.
+    await createSafetyBackup();
+
+    // 4. Merge.
     await mergeRemoteData(data);
+
+    // Trigger a sync so the freshly restored data propagates to Drive.
     SyncService.instance.triggerAutoSync();
   }
 
-  // ─── CRDT MERGE (Last Write Wins) ────────────────────────────────────────────
-
+  // ─── CRDT MERGE (Last Write Wins) ─────────────────────────────────────────
+  //
+  // Rules:
+  //   • If a record exists in BOTH local and backup:
+  //       – Keep whichever has the larger updatedAt (most recently written).
+  //   • If a record only exists in the backup → insert it locally.
+  //   • If a record only exists locally (not in backup) → keep it untouched.
+  //     This ensures new data created after the backup is never lost.
+  //   • isDeleted is treated like any other field — the newer record wins, so
+  //     a soft-delete propagates correctly across devices.
+  //
   Future<void> mergeRemoteData(Map<String, dynamic> remoteData) async {
     final db = await instance.database;
     final tables = ['cashbooks', 'entries', 'custom_fields', 'field_options', 'edit_logs'];
 
+    // Extract schema version for a compatibility gate.
+    final remoteSchema = (remoteData['schemaVersion'] as int?) ?? 0;
+
     await db.transaction((txn) async {
       for (String table in tables) {
         if (!remoteData.containsKey(table)) continue;
-        final List<dynamic> remoteRecords = remoteData[table];
+
+        final dynamic rawList = remoteData[table];
+        if (rawList is! List) continue; // Corrupted table entry — skip safely.
+
+        final List<dynamic> remoteRecords = rawList;
 
         final localRecords = await txn.query(table);
         final Map<String, Map<String, dynamic>> localMap = {
           for (var r in localRecords) r['id'].toString(): r
         };
 
-        for (var remoteItem in remoteRecords) {
-          final String id = remoteItem['id'].toString();
+        for (final dynamic remoteItem in remoteRecords) {
+          if (remoteItem is! Map) continue; // Skip malformed records.
+
+          final Map<String, dynamic> remote =
+              Map<String, dynamic>.from(remoteItem);
+
+          final String? id = remote['id']?.toString();
+          if (id == null || id.isEmpty) continue; // No ID → skip.
+
+          // ── Schema compatibility: back-fill missing sync columns ──────────
+          // Old backups (schema < 3) may lack updatedAt / isDeleted.
+          if (remoteSchema < 3) {
+            remote.putIfAbsent('updatedAt', () => 0);
+            remote.putIfAbsent('isDeleted', () => 0);
+          }
 
           if (localMap.containsKey(id)) {
-            // Both exist — keep whichever was updated more recently
+            // Record exists in both — keep the one with the higher updatedAt.
             final int localUpdated = (localMap[id]!['updatedAt'] ?? 0) as int;
-            final int remoteUpdated = (remoteItem['updatedAt'] ?? 0) as int;
+            final int remoteUpdated = (remote['updatedAt'] ?? 0) as int;
 
             if (remoteUpdated > localUpdated) {
+              // Remote is newer → overwrite local.
               await txn.update(
                 table,
-                Map<String, dynamic>.from(remoteItem),
+                remote,
                 where: 'id = ?',
                 whereArgs: [id],
               );
             }
-            // else: local is newer — keep local, do nothing
+            // else: local is newer → do nothing.
           } else {
-            // Only in backup — insert it locally
+            // Record only in backup → insert locally.
             await txn.insert(
               table,
-              Map<String, dynamic>.from(remoteItem),
+              remote,
               conflictAlgorithm: ConflictAlgorithm.ignore,
             );
           }
-          // Records only in local (not in backup) → untouched intentionally
+          // Records only in local (not in backup) → untouched (never deleted).
         }
       }
     });
