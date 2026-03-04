@@ -318,7 +318,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
           elevation: 0,
           indicatorColor: accentLight,
           selectedIndex: _currentIndex,
-          onDestinationSelected: (idx) => setState(() => _currentIndex = idx),
+          onDestinationSelected: (idx) {
+            setState(() => _currentIndex = idx);
+            // FIXED: Automatically refresh DB when switching to Home Tab
+            if (idx == 0) _refreshBooks();
+          },
           destinations: const [
             NavigationDestination(icon: Icon(Icons.home_outlined), selectedIcon: Icon(Icons.home, color: accent), label: 'Home'),
             NavigationDestination(icon: Icon(Icons.settings_outlined), selectedIcon: Icon(Icons.settings, color: accent), label: 'Settings'),
