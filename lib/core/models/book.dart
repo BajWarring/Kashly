@@ -7,6 +7,7 @@ class Book {
   int timestamp;
   String currency;
   String icon;
+  int updatedAt; // tracks last local write time — compared with SyncService.lastSyncTime
 
   Book({
     required this.id,
@@ -17,6 +18,7 @@ class Book {
     required this.timestamp,
     required this.currency,
     required this.icon,
+    this.updatedAt = 0,
   });
 
   Map<String, dynamic> toMap() {
@@ -29,6 +31,7 @@ class Book {
       'timestamp': timestamp,
       'currency': currency,
       'icon': icon,
+      // updatedAt is intentionally omitted — DatabaseHelper sets it on every write
     };
   }
 
@@ -43,6 +46,7 @@ class Book {
       timestamp: map['timestamp'],
       currency: map['currency'],
       icon: map['icon'],
+      updatedAt: map['updatedAt'] ?? 0,
     );
   }
 }
